@@ -6,6 +6,7 @@ import { getUnixTimestamp } from "../Statistics";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { recuritByOne, roomActivePlayersNumberCheck, roomTeamPlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { convertToPlayerStorage, getBanlistDataFromDB, setBanlistDataToDB, setPlayerDataToDB } from "../Storage";
+import { updateQueue, tryStartMatch, gameState } from './gameState.js';
 
 export async function onPlayerLeaveListener(player: PlayerObject): Promise<void> {
     // Event called when a player leaves the room.
@@ -97,4 +98,24 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
 
     // emit websocket event
     window._emitSIOPlayerInOutEvent(player.id);
+
+    gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
+    updateQueue();
+
+    const reds = window.gameRoom._room.getPlayerList().filter(p => p.team === 1);
+    const blues = window.gameRoom._room.getPlayerList().filter(p => p.team === 2);
+    const spec = gameState.queue;
+    const totalPlaying = reds.length + blues.length + spec.length;
+
+    // jeśli był mecz i zostaje mniej niż 2 graczy w drużynach
+    const gameInProgress = window.gameRoom._room.getScores() !== null;
+    if (gameInProgress && totalPlaying < 2) {
+        window.gameRoom._room.sendAnnouncement("⚠️ Za mało graczy — mecz przerwany.", null, 0xFFAA00, "bold", 1);
+        window.gameRoom._room.stopGame();
+
+        // przenosimy wszystkich na spect
+        reds.concat(blues).forEach(p => window.gameRoom._room.setPlayerTeam(p.id, 0));
+    }
+
+    tryStartMatch(); // spróbuj rozpocząć nowy mecz, jeśli ktoś czeka w kolejce
 }

@@ -67,3 +67,15 @@ export function cmdAfk(byPlayer: PlayerObject, message?: string): void {
 
     window._emitSIOPlayerStatusChangeEvent(byPlayer.id);
 }
+
+export function getAfkPlayers(): number[] {
+    const afkPlayerIds: number[] = [];
+
+    window.gameRoom.playerList.forEach(player => {
+        if (player.permissions.afkmode === true) {
+            afkPlayerIds.push(player.id);
+        }
+    });
+
+    return afkPlayerIds;
+}

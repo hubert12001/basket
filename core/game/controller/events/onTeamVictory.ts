@@ -8,6 +8,13 @@ import { fetchActiveSpecPlayers, roomActivePlayersNumberCheck } from "../../mode
 import { HElo, MatchResult, StatsRecord } from "../../model/Statistics/HElo";
 import { convertToPlayerStorage, setPlayerDataToDB } from "../Storage";
 
+function updatePlayerRatingsCache() {
+    for (const [id, player] of window.gameRoom.playerList) {
+        if (player && player.stats && typeof player.stats.rating === "number") {
+            (player as any).rating = player.stats.rating; // aktualizacja dla czatu
+        }
+    }
+}
 export async function onTeamVictoryListener(scores: ScoresObject): Promise<void> {
     // Event called when a team 'wins'. not just when game ended.
     // records vicotry in stats. total games also counted in this event.
@@ -53,86 +60,132 @@ export async function onTeamVictoryListener(scores: ScoresObject): Promise<void>
 
     window.gameRoom.isGamingNow = false; // turn off
 
-    if (window.gameRoom.config.rules.statsRecord == true && window.gameRoom.isStatRecord == true) { // records when game mode is for stats recording.
-        // HElo rating part ================
-        // make diffs array (key: index by teamPlayers order, value: number[])
+    if (window.gameRoom.config.rules.statsRecord === true && window.gameRoom.isStatRecord === true) {
+
+        try {
+            // =================== HElo rating part ===================
+            const redStatsRecords: StatsRecord[] = ratingHelper.makeStasRecord(
+                winnerTeamID === TeamID.Red ? MatchResult.Win : MatchResult.Lose,
+                redTeamPlayers
+            );
+            const blueStatsRecords: StatsRecord[] = ratingHelper.makeStasRecord(
+                winnerTeamID === TeamID.Blue ? MatchResult.Win : MatchResult.Lose,
+                blueTeamPlayers
+            );
+
+            const winTeamRatingsMean: number = ratingHelper.calcTeamRatingsMean(
+                winnerTeamID === TeamID.Red ? redTeamPlayers : blueTeamPlayers
+            );
+            const loseTeamRatingsMean: number = ratingHelper.calcTeamRatingsMean(
+                loserTeamID === TeamID.Red ? redTeamPlayers : blueTeamPlayers
+            );
+
+            // ===== RED TEAM RATING UPDATE + powiadomienie =====
+            redStatsRecords.forEach((eachItem: StatsRecord, idx: number) => {
+                const player = window.gameRoom.playerList.get(redTeamPlayers[idx].id);
+                if (!player) {
+                    window.gameRoom.logger.e('onTeamVictory', `ERROR: Red player index ${idx} not found in playerList`);
+                    return;
+                }
+                let diffArray: number[] = [];
+                const oldRating = player.stats.rating;
+                for (let i = 0; i < blueStatsRecords.length; i++) {
+                    diffArray.push(ratingHelper.calcBothDiff(eachItem, blueStatsRecords[i], winTeamRatingsMean, loseTeamRatingsMean, eachItem.matchKFactor));
+                }
+                const newRating = ratingHelper.calcNewRating(eachItem.rating, diffArray);
+                player.stats.rating = newRating;
+
+                // 🔹 Powiadomienie o zmianie punktów
+                const ratingDiff = newRating - oldRating;
+                const sign = ratingDiff >= 0 ? "+" : "";
+                window.gameRoom._room.sendAnnouncement(
+                    `⚡ ${player.name} got ${sign}${ratingDiff.toFixed(2)} ranking points.`,
+                    player.id, 0xFFFF00, "bold", 1
+                );
+            });
+
+            // ===== BLUE TEAM RATING UPDATE + powiadomienie =====
+            blueStatsRecords.forEach((eachItem: StatsRecord, idx: number) => {
+                const player = window.gameRoom.playerList.get(blueTeamPlayers[idx].id);
+                if (!player) {
+                    window.gameRoom.logger.e('onTeamVictory', `ERROR: Blue player index ${idx} not found in playerList`);
+                    return;
+                }
+                let diffArray: number[] = [];
+                const oldRating = player.stats.rating;
+                for (let i = 0; i < redStatsRecords.length; i++) {
+                    diffArray.push(ratingHelper.calcBothDiff(eachItem, redStatsRecords[i], winTeamRatingsMean, loseTeamRatingsMean, eachItem.matchKFactor));
+                }
+                const newRating = ratingHelper.calcNewRating(eachItem.rating, diffArray);
+                player.stats.rating = newRating;
+
+                // 🔹 Powiadomienie o zmianie punktów
+                const ratingDiff = newRating - oldRating;
+                const sign = ratingDiff >= 0 ? "+" : "";
+                window.gameRoom._room.sendAnnouncement(
+                    `⚡ ${player.name} got ${sign}${ratingDiff.toFixed(2)} ranking points.`,
+                    player.id, 0xFFFF00, "bold", 1
+                );
+            });
 
 
-        // make stat records
-        let redStatsRecords: StatsRecord[] = ratingHelper.makeStasRecord(winnerTeamID === TeamID.Red ? MatchResult.Win : MatchResult.Lose, redTeamPlayers);
-        let blueStatsRecords: StatsRecord[] = ratingHelper.makeStasRecord(winnerTeamID === TeamID.Blue ? MatchResult.Win : MatchResult.Lose, blueTeamPlayers);
+            // =================== STATS RECORD PART ===================
+            for (const eachPlayer of teamPlayers) {
+                const playerObj = window.gameRoom.playerList.get(eachPlayer.id);
+                if (!playerObj) {
+                    window.gameRoom.logger.e('onTeamVictory', `ERROR: Player ${eachPlayer.name} not found in playerList`);
+                    continue;
+                }
 
-        // calc average of team ratings
-        let winTeamRatingsMean: number = ratingHelper.calcTeamRatingsMean(winnerTeamID === TeamID.Red ? redTeamPlayers : blueTeamPlayers);
-        let loseTeamRatingsMean: number = ratingHelper.calcTeamRatingsMean(loserTeamID === TeamID.Red ? redTeamPlayers : blueTeamPlayers);
+                if (eachPlayer.team === winnerTeamID) playerObj.stats.wins++;
+                playerObj.stats.totals++;
+                playerObj.stats.goals += playerObj.matchRecord.goals;
+                playerObj.stats.assists += playerObj.matchRecord.assists;
+                playerObj.stats.ogs += playerObj.matchRecord.ogs;
+                playerObj.stats.losePoints += playerObj.matchRecord.losePoints;
+                playerObj.stats.balltouch += playerObj.matchRecord.balltouch;
+                playerObj.stats.passed += playerObj.matchRecord.passed;
 
-        // get diff and update rating
-        redStatsRecords.forEach((eachItem: StatsRecord, idx: number) => {
-            let diffArray: number[] = [];
-            let oldRating: number = window.gameRoom.playerList.get(redTeamPlayers[idx].id)!.stats.rating;
-            for (let i: number = 0; i < blueStatsRecords.length; i++) {
-                diffArray.push(ratingHelper.calcBothDiff(eachItem, blueStatsRecords[i], winTeamRatingsMean, loseTeamRatingsMean, eachItem.matchKFactor));
+                // reset match record
+                playerObj.matchRecord = {
+                    goals: 0,
+                    assists: 0,
+                    ogs: 0,
+                    losePoints: 0,
+                    balltouch: 0,
+                    passed: 0,
+                    factorK: window.gameRoom.config.HElo.factor.factor_k_normal,
+                };
+
+                try {
+                    await setPlayerDataToDB(convertToPlayerStorage(playerObj));
+                } catch (err) {
+                    window.gameRoom.logger.e('onTeamVictory', `ERROR saving ${playerObj.name}: ${err}`);
+                }
             }
-            let newRating: number = ratingHelper.calcNewRating(eachItem.rating, diffArray);
-            window.gameRoom.playerList.get(redTeamPlayers[idx].id)!.stats.rating = newRating;
-            window.gameRoom.logger.i('onTeamVictory', `Red Player ${redTeamPlayers[idx].name}#${redTeamPlayers[idx].id}'s rating has become ${newRating} from ${oldRating}.`);
-        });
-        blueStatsRecords.forEach((eachItem: StatsRecord, idx: number) => {
-            let diffArray: number[] = [];
-            let oldRating: number = window.gameRoom.playerList.get(blueTeamPlayers[idx].id)!.stats.rating;
-            for (let i: number = 0; i < redStatsRecords.length; i++) {
-                diffArray.push(ratingHelper.calcBothDiff(eachItem, redStatsRecords[i], winTeamRatingsMean, loseTeamRatingsMean, eachItem.matchKFactor));
-            }
-            let newRating: number = ratingHelper.calcNewRating(eachItem.rating, diffArray);
-            window.gameRoom.playerList.get(blueTeamPlayers[idx].id)!.stats.rating = newRating;
-            window.gameRoom.logger.i('onTeamVictory', `Blue Player ${blueTeamPlayers[idx].name}#${blueTeamPlayers[idx].id}'s rating has become ${newRating} from ${oldRating}.`);
-        });
 
-        // record stats part ================
-        teamPlayers.forEach(async (eachPlayer: PlayerObject) => {
-            if (eachPlayer.team === winnerTeamID) { // if this player is winner
-                window.gameRoom.playerList.get(eachPlayer.id)!.stats.wins++; //records a win
+            // =================== WIN STREAK PART ===================
+            if (winnerTeamID !== window.gameRoom.winningStreak.teamID) {
+                window.gameRoom.winningStreak.count = 1;
+            } else {
+                window.gameRoom.winningStreak.count++;
             }
-            window.gameRoom.playerList.get(eachPlayer.id)!.stats.totals++; // records game count and other stats
-            window.gameRoom.playerList.get(eachPlayer.id)!.stats.goals += window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.goals;
-            window.gameRoom.playerList.get(eachPlayer.id)!.stats.assists += window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.assists;
-            window.gameRoom.playerList.get(eachPlayer.id)!.stats.ogs += window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.ogs;
-            window.gameRoom.playerList.get(eachPlayer.id)!.stats.losePoints += window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.losePoints;
-            window.gameRoom.playerList.get(eachPlayer.id)!.stats.balltouch += window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.balltouch;
-            window.gameRoom.playerList.get(eachPlayer.id)!.stats.passed += window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.passed;
+            window.gameRoom.winningStreak.teamID = winnerTeamID;
 
-            window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord = { // init match record
-                goals: 0,
-                assists: 0,
-                ogs: 0,
-                losePoints: 0,
-                balltouch: 0,
-                passed: 0,
-                factorK: window.gameRoom.config.HElo.factor.factor_k_normal
+            placeholderVictory.streakTeamName = convertTeamID2Name(window.gameRoom.winningStreak.teamID);
+            placeholderVictory.streakTeamCount = window.gameRoom.winningStreak.count;
+
+            window.gameRoom.logger.i('onTeamVictory', `${placeholderVictory.streakTeamName} team wins streak ${placeholderVictory.streakTeamCount} games.`);
+
+            if (window.gameRoom.winningStreak.count >= 3) {
+                winningMessage += '\n' + Tst.maketext(LangRes.onVictory.burning, placeholderVictory);
             }
 
-            await setPlayerDataToDB(convertToPlayerStorage(window.gameRoom.playerList.get(eachPlayer.id)!)); // updates stats
-        });
-
-        // win streak part ================
-        if (winnerTeamID !== window.gameRoom.winningStreak.teamID) {
-            // if winner team is changed
-            window.gameRoom.winningStreak.count = 1; // init count and set to won one game
-        } else {
-            window.gameRoom.winningStreak.count++; // increase count
-        }
-        window.gameRoom.winningStreak.teamID = winnerTeamID; // set winner team id
-
-        // update placeholder
-        placeholderVictory.streakTeamName = convertTeamID2Name(window.gameRoom.winningStreak.teamID);
-        placeholderVictory.streakTeamCount = window.gameRoom.winningStreak.count;
-
-        window.gameRoom.logger.i('onTeamVictory', `${placeholderVictory.streakTeamName} team wins streak ${placeholderVictory.streakTeamCount} games.`); // log it
-
-        if (window.gameRoom.winningStreak.count >= 3) {
-            winningMessage += '\n' + Tst.maketext(LangRes.onVictory.burning, placeholderVictory);
+        } catch (err) {
+            window.gameRoom.logger.e('onTeamVictory', `ERROR main block: ${err}`);
         }
     }
+
 
     // when auto emcee mode is enabled
     if (window.gameRoom.config.rules.autoOperating === true) {
@@ -174,13 +227,15 @@ export async function onTeamVictoryListener(scores: ScoresObject): Promise<void>
 
             const specPlayers: PlayerObject[] = fetchActiveSpecPlayers();
             const insufficiency: number = window.gameRoom.config.rules.requisite.eachTeamPlayers - window.gameRoom._room.getPlayerList().filter((player: PlayerObject) => player.team === loserTeamID).length;
-            for(let i=0; i < insufficiency && i < specPlayers.length; i++) {
+            for (let i = 0; i < insufficiency && i < specPlayers.length; i++) {
                 window.gameRoom._room.setPlayerTeam(specPlayers[i].id, loserTeamID);
             }
         }
     }
 
     // notify victory
+    updatePlayerRatingsCache();
+
     window.gameRoom.logger.i('onTeamVictory', `The game has ended. Scores ${scores.red}:${scores.blue}.`);
     window.gameRoom._room.sendAnnouncement(winningMessage, null, 0x00FF00, "bold", 1);
 }

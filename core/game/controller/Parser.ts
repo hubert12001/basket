@@ -76,14 +76,6 @@ export function parseCommand(byPlayer: PlayerObject, message: string): void {
             cmdPoss(byPlayer);
             break;
         }
-        case window.gameRoom.config.commands.afk: {
-            if(msgChunk[1] !== undefined) {
-                cmdAfk(byPlayer, msgChunk[1]);
-            } else {
-                cmdAfk(byPlayer);
-            }
-            break;
-        }
         case window.gameRoom.config.commands.list: {
             if(msgChunk[1] !== undefined) {
                 cmdList(byPlayer, msgChunk[1]);

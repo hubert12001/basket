@@ -1,22 +1,52 @@
-
 import * as Tst from "../Translator";
 import * as LangRes from "../../resource/strings";
 import { PlayerObject } from "../../model/GameObject/PlayerObject";
 import { isCommandString, parseCommand } from "../Parser";
-import { getUnixTimestamp } from "../Statistics";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { isIncludeBannedWords } from "../TextFilter";
+import { gameState, updateQueue, tryStartMatch } from './gameState.js';
 
+// =======================
+// Definicja rang i funkcja do prefixu
+// =======================
+const tiers = [
+    { rating: 0, emoji: "⚫", name: "Iron" },
+    { rating: 200, emoji: "🟤", name: "Bronze" },
+    { rating: 400, emoji: "⚪", name: "Silver" },
+    { rating: 600, emoji: "🟡", name: "Gold" },
+    { rating: 800, emoji: "🔵", name: "Platinum" },
+    { rating: 1000, emoji: "🟢", name: "Emerald" },
+    { rating: 1200, emoji: "🟠", name: "Diamond" },
+    { rating: 1400, emoji: "🔴", name: "Ruby" },
+    { rating: 1600, emoji: "👑", name: "Legendary" }
+];
+
+function getPlayerPrefix(rating: number) {
+    let tier = tiers[0];
+    for (let i = 0; i < tiers.length; i++) {
+        if (rating >= tiers[i].rating) tier = tiers[i];
+        else break;
+    }
+    return `${tier.emoji} ${tier.name}`;
+}
+
+// =======================
+// Funkcja do obliczania miejsca gracza
+// =======================
+function getPlayerRank(player: PlayerObject, allPlayers: PlayerObject[]) {
+    const sorted = [...allPlayers].sort(
+        (a, b) => ((b as any).stats?.rating ?? 0) - ((a as any).stats?.rating ?? 0)
+    );
+    return sorted.findIndex(p => p.id === player.id) + 1;
+}
+
+// =======================
+// Główna funkcja obsługi czatu
+// =======================
 export function onPlayerChatListener(player: PlayerObject, message: string): boolean {
-    // Event called when a player sends a chat message.
-    // The event function can return false in order to filter the chat message.
-    // Then It prevents the chat message from reaching other players in the room.
-
-    //TODO: CHAT FILTERING : https://github.com/web-mech/badwords
-
     window.gameRoom.logger.i('onPlayerChat', `[${player.name}#${player.id}] ${message}`);
 
-    var placeholderChat = {
+    const placeholderChat = {
         playerID: player.id,
         playerName: player.name,
         gameRuleName: window.gameRoom.config.rules.ruleName,
@@ -29,61 +59,107 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         streakTeamCount: window.gameRoom.winningStreak.count
     };
 
-    // =========
+    // ========= AFK command =========
+    if (message === "!afk") {
+        const gameInProgress = window.gameRoom._room.getScores() !== null;
 
-    if (isCommandString(message) === true) { // if this message is command chat
-        parseCommand(player, message); // evaluate it
-        return false; // and show this message for only him/herself
-    } else { // if this message is normal chat
-        if (player.admin === true) { // if this player is admin
-            return true; // admin can chat regardless of mute
+        if (gameInProgress && player.team !== 0) {
+            window.gameRoom._room.sendAnnouncement("❌ You can’t go AFK during the match!", player.id, 0xFF0000, "bold", 1);
+            return false;
+        }
+
+        if (player.team !== 0) {
+            window.gameRoom._room.sendAnnouncement("⚠️ You can only set AFK while being in spectator.", player.id, 0xFFFF00, "bold", 1);
+            return false;
+        }
+
+        if (gameState.afkPlayers.includes(player.id)) {
+            gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
+            window.gameRoom._room.sendAnnouncement(`✅ ${player.name} has returned from AFK and can play.`, null, 0x00FF00, "bold", 1);
+            tryStartMatch();
         } else {
-            if (window.gameRoom.isMuteAll === true || window.gameRoom.playerList.get(player.id)!.permissions['mute'] === true) { // if this player is muted or whole chat is frozen
-                window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.mutedChat, placeholderChat), player.id, 0xFF0000, "bold", 2); // notify that fact
-                return false; // and hide this chat
-            } else {
-                // Anti Chat Flood Checking
-                if (window.gameRoom.config.settings.antiChatFlood === true && window.gameRoom.isStatRecord === true) { // if anti chat flood options is enabled
-                    let chatFloodCritFlag: boolean = false;
-                    window.gameRoom.antiTrollingChatFloodCount.push(player.id); // record who said this chat
-                    for (let floodCritCount = 1; floodCritCount <= window.gameRoom.config.settings.chatFloodCriterion; floodCritCount++) {
-                        let floodID: number = window.gameRoom.antiTrollingChatFloodCount[window.gameRoom.antiTrollingChatFloodCount.length - floodCritCount] || 0;
-                        if (floodID === player.id) {
-                            chatFloodCritFlag = true;
-                        } else {
-                            chatFloodCritFlag = false;
-                            break; // abort loop
-                        }
-                    }
-                    if (chatFloodCritFlag === true && window.gameRoom.playerList.get(player.id)!.permissions['mute'] === false) { // after complete loop, check flag
-                        const nowTimeStamp: number = getUnixTimestamp(); //get timestamp
-                        // judge as chat flood.
-                        window.gameRoom.playerList.get(player.id)!.permissions['mute'] = true; // mute this player
-                        window.gameRoom.playerList.get(player.id)!.permissions.muteExpire = nowTimeStamp + window.gameRoom.config.settings.muteDefaultMillisecs; //record mute expiration date by unix timestamp
-                        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.antitrolling.chatFlood.muteReason, placeholderChat), null, 0xFF0000, "normal", 1); // notify that fact
-                        
-                        window._emitSIOPlayerStatusChangeEvent(player.id);
-                        return false;
-                    }
-                }
-                // Message Length Limitation Check
-                if(message.length > window.gameRoom.config.settings.chatLengthLimit) {
-                    window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.tooLongChat, placeholderChat), player.id, 0xFF0000, "bold", 2); // notify that fact
-                    return false;
-                }
-                // if this player use seperator (|,|) in chat message
-                if(message.includes('|,|')) {
-                    window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.includeSeperator, placeholderChat), player.id, 0xFF0000, "bold", 2); // notify that fact
-                    return false;
-                }
-                // Check if includes banned words
-                if(window.gameRoom.config.settings.chatTextFilter === true && isIncludeBannedWords(window.gameRoom.bannedWordsPool.chat, message)) {
-                    window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.bannedWords, placeholderChat), player.id, 0xFF0000, "bold", 2); // notify that fact
-                    return false;
-                }
-                // otherwise, send to room
-                return true;
+            gameState.afkPlayers.push(player.id);
+            window.gameRoom._room.sendAnnouncement(`💤 ${player.name} is now AFK.`, null, 0xFFFF00, "bold", 1);
+        }
+        updateQueue();
+        return false;
+    }
+
+    // ========= AFKS command =========
+    if (message === "!afks") {
+        if (gameState.afkPlayers.length === 0) {
+            window.gameRoom._room.sendAnnouncement("No one is AFK.", player.id, 0x00FF00, "bold", 1);
+            return false;
+        }
+
+        // Pobierz listę obiektów graczy AFK
+        const afkPlayerNames = gameState.afkPlayers
+            .map(id => window.gameRoom.playerList.get(id))
+            .filter(p => p) // usuń undefined, gdyby ktoś wyszedł
+            .map(p => p?.name);
+
+        const afkList = afkPlayerNames.join(", ");
+
+        window.gameRoom._room.sendAnnouncement(`💤 Players AFK: ${afkList}`, player.id, 0xFFFF00, "bold", 1);
+        return false;
+    }
+    // ========= Commands =========
+    if (isCommandString(message)) {
+        parseCommand(player, message);
+        return false;
+    }
+
+    // ========= Normal chat =========
+    if (!player.admin) {
+        // sprawdzenie mutów
+        if (window.gameRoom.isMuteAll || window.gameRoom.playerList.get(player.id)!.permissions['mute']) {
+            window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.mutedChat, placeholderChat), player.id, 0xFF0000, "bold", 2);
+            return false;
+        }
+
+        // Anti Chat Flood
+        if (window.gameRoom.config.settings.antiChatFlood && window.gameRoom.isStatRecord) {
+            let chatFloodCritFlag = false;
+            window.gameRoom.antiTrollingChatFloodCount.push(player.id);
+            for (let floodCritCount = 1; floodCritCount <= window.gameRoom.config.settings.chatFloodCriterion; floodCritCount++) {
+                const floodID = window.gameRoom.antiTrollingChatFloodCount[window.gameRoom.antiTrollingChatFloodCount.length - floodCritCount] || 0;
+                if (floodID === player.id) chatFloodCritFlag = true;
+                else { chatFloodCritFlag = false; break; }
             }
         }
     }
+
+    // Długość wiadomości
+    if (message.length > window.gameRoom.config.settings.chatLengthLimit) {
+        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.tooLongChat, placeholderChat), player.id, 0xFF0000, "bold", 2);
+        return false;
+    }
+
+    // Separator
+    if (message.includes('|,|')) {
+        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.includeSeperator, placeholderChat), player.id, 0xFF0000, "bold", 2);
+        return false;
+    }
+
+    // Banned words
+    if (window.gameRoom.config.settings.chatTextFilter && isIncludeBannedWords(window.gameRoom.bannedWordsPool.chat, message)) {
+        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.bannedWords, placeholderChat), player.id, 0xFF0000, "bold", 2);
+        return false;
+    }
+
+    // === Prefix i ranking ===
+    const allPlayers = Array.from(window.gameRoom.playerList.values());
+
+    // ✅ Rating tylko z player.stats.rating
+    const playerData = window.gameRoom.playerList.get(player.id);
+    const rating = playerData?.stats?.rating ?? 0;
+
+    const prefix = getPlayerPrefix(rating);
+
+    let displayPrefix = `[${prefix}]`;
+    if (player.admin) displayPrefix = `[👑 Admin][${prefix}]`;
+
+    const prefixedMessage = `${displayPrefix} ${player.name}: ${message}`;
+    window.gameRoom._room.sendAnnouncement(prefixedMessage, null, 0xFFFFFF, "normal", 1);
+    return false;
 }

@@ -1,109 +1,134 @@
 import { PlayerObject } from "../GameObject/PlayerObject";
 
 export class HElo {
-    // https://ryanmadden.net/posts/Adapting-Elo
-
-    // written in Singleton Pattern
-    // If the bot created HElo object once, never create ever until the bot instance dead. 
-
     private static instance: HElo = new HElo();
+    private constructor() {}
 
-    private HElo() { } // not use
-    
     public static getInstance(): HElo {
-        if (this.instance == null) {
-            this.instance = new HElo();
-        }
+        if (this.instance == null) this.instance = new HElo();
         return this.instance;
     }
 
-    // E(A)
-    private calcExpectedResult(targetRating: number, counterpartRating: number): number {
-        let res: number = parseFloat((1 / (1 + Math.pow(10, (counterpartRating - targetRating) / 400))).toFixed(2));
+    // --- Parametry systemu HTX ---
+    private readonly D = 400; // skala jak w Elo
+    private readonly BASE_XP_WIN = 20;
+    private readonly BASE_XP_LOSE = 8;
+    private readonly UNDERDOG_SCALE = 1.8;
+    private readonly PLACEMENT_MATCHES = 10;
+    private readonly PLACEMENT_BONUS = 1.25;
+    private readonly MAX_XP_PER_MATCH = 40;
+    private readonly RATING_CAP = 3000;
 
-        return res;
+    private expectedResult(rA: number, rB: number): number {
+        return 1 / (1 + Math.pow(10, (rB - rA) / this.D));
     }
 
-    // Q
-    private calcQMultiplier(ratingWinnersMean: number, ratingLosersMean: number): number {
-        let res: number = parseFloat((2.2 / ((ratingWinnersMean - ratingLosersMean) * 0.001 + 2.2)).toFixed(2));
-
-        return res;
+    // --- dynamiczny mnożnik w zależności od ratingu i różnicy ---
+    private dynamicMultiplier(playerRating: number, opponentRating: number): number {
+        // Wyższy rating -> wolniejszy progres
+        const ratingFactor = Math.max(0.2, 1 - playerRating / 2000);
+        // Duża różnica -> większy bonus dla underdoga i większa kara dla faworyta
+        const diffFactor = 1 + Math.min(1.5, Math.abs(playerRating - opponentRating) / 1000);
+        return ratingFactor * diffFactor;
     }
 
-    // PD
-    private calcPD(targetRecord: StatsRecord, counterpartRecord: StatsRecord): number {
-        let targetAdjustPassSuccRate: number = (targetRecord.realResult === MatchResult.Win)?targetRecord.matchPassSuccRate:(1-targetRecord.matchPassSuccRate);
-        let counterpartAdjustPassSuccRate: number = (counterpartRecord.realResult === MatchResult.Win)?counterpartRecord.matchPassSuccRate:(1-counterpartRecord.matchPassSuccRate);
-        
-        let res: number = parseFloat((
-            ((targetRecord.matchGoal - targetRecord.matchOG) * targetAdjustPassSuccRate)
-            - ((counterpartRecord.matchGoal - counterpartRecord.matchOG) * counterpartAdjustPassSuccRate)
-            ).toFixed(2));
+    // --- NOWA LOGIKA PRZYZNAWANIA PUNKTÓW ELO ---
+    private calcXPChange(
+        player: StatsRecord,
+        opponent: StatsRecord,
+        gamesPlayed: number
+    ): number {
+        const result = player.realResult;
 
-        return res;
+        const playerRating = player.rating;
+        const opponentRating = opponent.rating;
+        const diff = Math.abs(playerRating - opponentRating);
+
+        // Znormalizowana różnica 0–1 (powyżej 1000 traktujemy jak 1000)
+        const normDiff = Math.min(diff, 1000) / 1000;
+
+        // Underdog = gracz z niższym ratingiem
+        const isUnderdog = playerRating < opponentRating;
+
+        let xpChange = 0;
+
+        if (result === MatchResult.Win) {
+            if (isUnderdog) {
+                // Im większa różnica, tym bliżej 40
+                xpChange = 25 + (40 - 25) * normDiff;
+            } else {
+                // Im większa różnica, tym bliżej 10
+                xpChange = 25 - (25 - 10) * normDiff;
+            }
+        } else if (result === MatchResult.Lose) {
+            if (isUnderdog) {
+                // Underdog traci mniej, im większa różnica, tym bliżej -10
+                xpChange = -(25 - (25 - 10) * normDiff);
+            } else {
+                // Faworyt traci więcej, im większa różnica, tym bliżej -40
+                xpChange = -(25 + (40 - 25) * normDiff);
+            }
+        } else if (result === MatchResult.Draw) {
+            // Remis – lekko premiuje słabszego
+            xpChange = isUnderdog
+                ? 5 + (10 * (1 - normDiff)) // słabszy dostaje lekko więcej
+                : -5 * normDiff; // faworyt lekko traci przy remisie
+        }
+
+        // Bonus za placement (pierwsze kilka gier)
+        const placementMult = gamesPlayed < this.PLACEMENT_MATCHES ? this.PLACEMENT_BONUS : 1;
+        let finalXP = xpChange * placementMult;
+
+        // Clamp bezpieczeństwa
+        finalXP = Math.max(-this.MAX_XP_PER_MATCH, Math.min(this.MAX_XP_PER_MATCH, finalXP));
+
+        return parseFloat(finalXP.toFixed(2));
     }
 
-    // MoVM
-    private calcMoVMultiplier(difference: number, multiplierQ: number): number {
-        let res: number = parseFloat((Math.log(Math.abs(difference) + 1) * multiplierQ).toFixed(2));
-
-        return res;
+    public calcBothDiff(
+        targetRecord: StatsRecord,
+        counterpartRecord: StatsRecord,
+        _ratingWinnersMean: number,
+        _ratingLosersMean: number,
+        _factorK: number
+    ): number {
+        const gamesPlayed = targetRecord.matchKFactor || 0;
+        let delta = this.calcXPChange(targetRecord, counterpartRecord, gamesPlayed);
+        if (targetRecord.rating === 0 && delta < 0) delta = 0;
+        return delta;
     }
 
-    // S(A)-E(A)
-    private calcResultDifference(realResult: MatchResult, targetRating: number, counterpartRating: number): number {
-        let res: number = parseFloat((realResult - this.calcExpectedResult(targetRating, counterpartRating)).toFixed(2));
-
-        return res;
-    }
-
-    // K*MoVM*(S-E)
-    public calcBothDiff(targetRecord: StatsRecord, counterpartRecord: StatsRecord, ratingWinnersMean: number, ratingLosersMean: number, factorK: number): number {
-        let res: number = 
-            parseFloat((factorK 
-            * this.calcMoVMultiplier(this.calcPD(targetRecord, counterpartRecord), this.calcQMultiplier(ratingWinnersMean, ratingLosersMean))
-            * (this.calcResultDifference(targetRecord.realResult, targetRecord.rating, counterpartRecord.rating))
-            ).toFixed(2));
-
-        return res;
-    }
-
-    // R' = R + sum of all diffs
     public calcNewRating(originalRating: number, diffs: number[]): number {
-        let sumDiffs: number = diffs.reduce((acc, curr) => { return acc + curr}, 0);
-        let res: number = Math.round(originalRating + sumDiffs);
-        if(res < 0) res = 0; // minimum rating is 0.
-
-        return res;
+        const totalDiff = diffs.reduce((a, b) => a + b, 0);
+        let newRating = Math.round(originalRating + totalDiff);
+        if (newRating < 0) newRating = 0;
+        if (newRating > this.RATING_CAP) newRating = this.RATING_CAP;
+        return newRating;
     }
 
     public calcTeamRatingsMean(eachTeamPlayers: PlayerObject[]): number {
-        let res: number =  parseFloat((( eachTeamPlayers
-            .map((eachPlayer: PlayerObject) => window.gameRoom.playerList.get(eachPlayer.id)!.stats.rating)
-            .reduce((arr: number, curr: number) => { return arr+curr }, 0)
-        ) / eachTeamPlayers.length).toFixed(2));
-
-        return res;
+        const sum = eachTeamPlayers
+            .map((p: PlayerObject) => window.gameRoom.playerList.get(p.id)!.stats.rating)
+            .reduce((a, b) => a + b, 0);
+        return parseFloat((sum / eachTeamPlayers.length).toFixed(2));
     }
 
     public makeStasRecord(matchResult: MatchResult, teamPlayers: PlayerObject[]): StatsRecord[] {
-        let statsRecords: StatsRecord[] = [];
-        teamPlayers.forEach((eachPlayer: PlayerObject) => {
+        const statsRecords: StatsRecord[] = [];
+        teamPlayers.forEach((p: PlayerObject) => {
+            const pl = window.gameRoom.playerList.get(p.id)!;
             statsRecords.push({
-                rating: window.gameRoom.playerList.get(eachPlayer.id)!.stats.rating,
+                rating: pl.stats.rating,
                 realResult: matchResult,
-                matchKFactor: window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.factorK,
-                matchGoal: window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.goals,
-                matchOG: window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.ogs,
-                matchPassSuccRate: (
-                    window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.balltouch === 0
-                    ? 0
-                    : parseFloat((window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.passed / window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.balltouch).toFixed(2))
-                )
+                matchKFactor: pl.matchRecord.factorK,
+                matchGoal: pl.matchRecord.goals,
+                matchOG: pl.matchRecord.ogs,
+                matchPassSuccRate:
+                    pl.matchRecord.balltouch === 0
+                        ? 0
+                        : parseFloat((pl.matchRecord.passed / pl.matchRecord.balltouch).toFixed(2))
             });
         });
-
         return statsRecords;
     }
 }

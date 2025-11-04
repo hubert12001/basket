@@ -17,6 +17,7 @@ import * as mapGBHotHuge from "./stadium/gbhothuge.hbs"
 import * as mapGBHotSmall from "./stadium/gbhotsmall.hbs"
 import * as mapGBSoHot from "./stadium/gbsohot.hbs"
 import * as mapRealSoccer from "./stadium/realsoccer.hbs"
+import * as mapBasketball from "./stadium/basketball.hbs"
 
 /**
 * load stadium map (JSON stringified).
@@ -59,6 +60,8 @@ export function loadStadiumData(mapName: string): string {
             return mapGBSoHot.stadiumText;
         case 'realSoccer':
             return mapRealSoccer.stadiumText;
+        case 'basketball':
+            return mapBasketball.stadiumText;
 
         default:
             return mapGBTraining.stadiumText;

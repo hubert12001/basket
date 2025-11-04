@@ -5,6 +5,7 @@ import { getUnixTimestamp } from "../Statistics";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { ScoresObject } from "../../model/GameObject/ScoresObject";
 import { setBanlistDataToDB } from "../Storage";
+import { resetOvertimeTimer, handleMatchEnd } from './gameState.js';
 
 export async function onTeamGoalListener(team: TeamID): Promise<void> {
     // Event called when a team scores a goal.
@@ -99,4 +100,11 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
             
         }
     }
+
+    resetOvertimeTimer();
+    window.gameRoom._room.sendAnnouncement("🔥 " + (team == 1 ? "Red" : "Blue") + " scores a point!", null, 0xFFD700, "bold", 1);
+    setTimeout(() => {
+        window.gameRoom._room.stopGame();
+        handleMatchEnd();
+    }, 3000);
 }

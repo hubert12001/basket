@@ -3,7 +3,7 @@ import { PlayerObject } from "../../model/GameObject/PlayerObject";
 import { convertToPlayerStorage, setPlayerDataToDB } from "../Storage";
 
 export async function cmdStatsReset(byPlayer: PlayerObject): Promise<void> {
-    window.gameRoom.playerList.get(byPlayer.id)!.stats.rating = 1000;
+    window.gameRoom.playerList.get(byPlayer.id)!.stats.rating = 0;
     window.gameRoom.playerList.get(byPlayer.id)!.stats.disconns = 0;
     window.gameRoom.playerList.get(byPlayer.id)!.stats.totals = 0;
     window.gameRoom.playerList.get(byPlayer.id)!.stats.wins = 0;

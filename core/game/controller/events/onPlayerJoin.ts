@@ -9,6 +9,19 @@ import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { recuritByOne, roomActivePlayersNumberCheck, roomTeamPlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { decideTier, getAvatarByTier, Tier } from "../../model/Statistics/Tier";
 import { isExistNickname, isIncludeBannedWords } from "../TextFilter";
+import { updateQueue, tryStartMatch } from './gameState.js';
+
+
+const allowedAdmins = [
+    "z6D837qxvbBu0viJAjtSqCn2VJ69tjbxwOYja1du9iY", // <--- wstaw tutaj swoje ID
+    "4ILBUpujI_N-KpXoz7ThvdBKL9qyXE1cbVXEoDYgLN4",
+    "qO4d1F7Tujq3kzUeXSXO52NrBlohuINfP78VCqXFJ1A",
+    "g6965LLIm9tfScp0YsN8ssulF3aRR60Ns-XKFTkC0Zo",
+    "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM",
+    "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8",
+    "HzgAQF2E2B2cGhtSpHjCdFCRnFiQU11KrxIhGAZhQ30"
+];
+
 
 export async function onPlayerJoinListener(player: PlayerObject): Promise<void> {
     const joinTimeStamp: number = getUnixTimestamp();
@@ -69,10 +82,10 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
         window.gameRoom._room.kickPlayer(player.id, Tst.maketext(LangRes.onJoin.includeSeperator, placeholderJoin), false); // kick
         return;
     }
-    
+
     // if this player has already joinned by other connection
     for (let eachPlayer of window.gameRoom.playerList.values()) {
-        if(eachPlayer.conn === player.conn) {
+        if (eachPlayer.conn === player.conn) {
             window.gameRoom.logger.i('onPlayerJoin', `${player.name}#${player.id} was joined but kicked for double joinning. (origin:${eachPlayer.name}#${eachPlayer.id},conn:${player.conn})`);
             window.gameRoom._room.kickPlayer(player.id, Tst.maketext(LangRes.onJoin.doubleJoinningKick, placeholderJoin), false); // kick
             //window.room.sendAnnouncement(Tst.maketext(LangRes.onJoin.doubleJoinningMsg, placeholderJoin), null, 0xFF0000, "normal", 0); // notify
@@ -81,7 +94,7 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     }
 
     // if player's nickname is longer than limitation
-    if (player.name.length > window.gameRoom.config.settings.nicknameLengthLimit) {
+    if (player.name.length > 30) {
         window.gameRoom.logger.i('onPlayerJoin', `${player.name}#${player.id} was joined but kicked for too long nickname.`);
         window.gameRoom._room.kickPlayer(player.id, Tst.maketext(LangRes.onJoin.tooLongNickname, placeholderJoin), false); // kick
         return;
@@ -172,7 +185,7 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
         // if new player
         // create a Player Object
         window.gameRoom.playerList.set(player.id, new Player(player, {
-            rating: 1000,
+            rating: 0,
             totals: 0,
             disconns: 0,
             wins: 0,
@@ -217,7 +230,7 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onJoin.welcome, placeholderJoin), player.id, 0x00FF00, "normal", 0);
 
     // send notice
-    if(window.gameRoom.notice !== '') {
+    if (window.gameRoom.notice !== '') {
         window.gameRoom._room.sendAnnouncement(window.gameRoom.notice, player.id, 0x55AADD, "bold", 0);
     }
 
@@ -249,6 +262,14 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
         }
     }
 
+
     // emit websocket event
     window._emitSIOPlayerInOutEvent(player.id);
+
+    if (allowedAdmins.includes(player.auth)) {
+        window.gameRoom._room.setPlayerAdmin(player.id, true);
+    }
+    
+    updateQueue();
+    tryStartMatch();
 }

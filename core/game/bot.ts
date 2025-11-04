@@ -21,42 +21,42 @@ const loadedConfig: GameRoomConfig = JSON.parse(localStorage.getItem('_initConfi
 
 window.gameRoom = {
     _room: window.HBInit(loadedConfig._config)
-    ,config: loadedConfig
-    ,link: ''
-    ,social: {
+    , config: loadedConfig
+    , link: ''
+    , social: {
         discordWebhook: {
             feed: false
-            ,replayUpload: false
-            ,id: ''
-            ,token: ''
+            , replayUpload: false
+            , id: ''
+            , token: ''
         }
     }
-    ,stadiumData: {
+    , stadiumData: {
         default: localStorage.getItem('_defaultMap')!
-        ,training: localStorage.getItem('_readyMap')!
+        , training: localStorage.getItem('_readyMap')!
     }
-    ,bannedWordsPool: {
+    , bannedWordsPool: {
         nickname: []
-        ,chat: []
+        , chat: []
     }
-    ,teamColours: {
+    , teamColours: {
         red: { angle: 0, textColour: 0xffffff, teamColour1: 0xe66e55, teamColour2: 0xe66e55, teamColour3: 0xe66e55 }
-        ,blue: { angle: 0, textColour: 0xffffff, teamColour1: 0x5a89e5, teamColour2: 0x5a89e5, teamColour3: 0x5a89e5 }
+        , blue: { angle: 0, textColour: 0xffffff, teamColour1: 0x5a89e5, teamColour2: 0x5a89e5, teamColour3: 0x5a89e5 }
     }
-    ,logger: Logger.getInstance() 
-    ,isStatRecord: false
-    ,isGamingNow: false
-    ,isMuteAll: false
-    ,playerList: new Map()
-    ,ballStack: KickStack.getInstance()
-    ,banVoteCache: []
-    ,winningStreak: { count: 0, teamID: TeamID.Spec }
-    ,antiTrollingOgFloodCount: []
-    ,antiTrollingChatFloodCount: []
-    ,antiInsufficientStartAbusingCount: []
-    ,antiPlayerKickAbusingCount: []
-    ,notice: ''
-    ,onEmergency: EmergencyTools
+    , logger: Logger.getInstance()
+    , isStatRecord: false
+    , isGamingNow: false
+    , isMuteAll: false
+    , playerList: new Map()
+    , ballStack: KickStack.getInstance()
+    , banVoteCache: []
+    , winningStreak: { count: 0, teamID: TeamID.Spec }
+    , antiTrollingOgFloodCount: []
+    , antiTrollingChatFloodCount: []
+    , antiInsufficientStartAbusingCount: []
+    , antiPlayerKickAbusingCount: []
+    , notice: ''
+    , onEmergency: EmergencyTools
 }
 
 // clear localStorage
@@ -109,7 +109,7 @@ var scheduledTimer5 = setInterval(() => {
             window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.scheduler.autoUnmute, placeholderScheduler), null, 0x479947, "normal", 0); //notify it
             window._emitSIOPlayerStatusChangeEvent(player.id);
         }
-
+        /*
         // when afk too long kick option is enabled, then check sleeping with afk command and kick if afk too long
         if (window.gameRoom.config.settings.afkCommandAutoKick === true && player.permissions.afkmode === true && nowTimeStamp > player.permissions.afkdate + window.gameRoom.config.settings.afkCommandAutoKickAllowMillisecs) {
             window.gameRoom._room.kickPlayer(player.id, Tst.maketext(LangRes.scheduler.afkCommandTooLongKick, placeholderScheduler), false); // kick
@@ -139,6 +139,7 @@ var scheduledTimer5 = setInterval(() => {
                 }
             }
         }
+            */
     });
 }, 5000); // 5secs
 // ====================================================================================================
