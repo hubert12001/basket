@@ -4,7 +4,7 @@ import { PlayerObject } from "../../model/GameObject/PlayerObject";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { recuritBothTeamFully } from "../../model/OperateHelper/Quorum";
 import { setDefaultRoomLimitation, setDefaultStadiums } from "../RoomTools";
-import { resetOvertimeTimer, handleMatchEnd } from './gameState.js';
+import { resetOvertimeTimer, handleMatchEnd, resetAllTimers } from './gameState.js';
 
 export function onGameStopListener(byPlayer: PlayerObject): void {
     /*
@@ -65,6 +65,6 @@ export function onGameStopListener(byPlayer: PlayerObject): void {
         window.gameRoom._room.startGame(); // start next new game
     }
 
-    resetOvertimeTimer();
+    resetAllTimers();
     handleMatchEnd();
 }

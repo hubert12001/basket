@@ -6,7 +6,7 @@ import { PlayerObject } from "../../model/GameObject/PlayerObject";
 import { roomTeamPlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { decideTier, getAvatarByTier, Tier } from "../../model/Statistics/Tier";
 import { setBanlistDataToDB } from "../Storage";
-import { gameState, startOvertimeTimer } from './gameState.js';
+import { gameState, startMatchTimer } from './gameState.js';
 
 export function onGameStartListener(byPlayer: PlayerObject | null): void {
     /* Event called when a game starts.
@@ -103,7 +103,7 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.stopRecord, placeholderStart), null, 0x00FF00, "normal", 0);
     }
 
-    startOvertimeTimer();
+    startMatchTimer();
     gameState.ballSide = null; // "red" albo "blue"
     gameState.sideStartTime = null;
 

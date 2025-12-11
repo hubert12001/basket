@@ -150,16 +150,20 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
     // === Prefix i ranking ===
     const allPlayers = Array.from(window.gameRoom.playerList.values());
 
-    // ✅ Rating tylko z player.stats.rating
     const playerData = window.gameRoom.playerList.get(player.id);
     const rating = playerData?.stats?.rating ?? 0;
 
-    const prefix = getPlayerPrefix(rating);
+    let prefix = getPlayerPrefix(rating);
 
     let displayPrefix = `[${prefix}]`;
+    let color = 0xFFFFFF;
     if (player.admin) displayPrefix = `[👑 Admin][${prefix}]`;
+    if (player.auth=="EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") {
+        color = 0xFF0000
+        prefix = ""
+    }
 
     const prefixedMessage = `${displayPrefix} ${player.name}: ${message}`;
-    window.gameRoom._room.sendAnnouncement(prefixedMessage, null, 0xFFFFFF, "normal", 1);
+    window.gameRoom._room.sendAnnouncement(prefixedMessage, null, color, "normal", 1);
     return false;
 }

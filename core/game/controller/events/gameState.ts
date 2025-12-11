@@ -2,30 +2,87 @@ import { getAfkPlayers } from "../commands/afk";
 import { roomActivePlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 
 interface GameState {
+    isOvertime: false | true | null,
     ballSide: "red" | "blue" | null;
     sideStartTime: number | null;
     queue: number[];
     afkPlayers: number[];
+    matchStartTimestamp: number | null;
 }
 
 const gameState: GameState = {
+    isOvertime: null,
     ballSide: null,
     sideStartTime: null,
     queue: [],
-    afkPlayers: []
+    afkPlayers: [],
+    matchStartTimestamp: null
 };
 
 let overtimeTimer: ReturnType<typeof setTimeout> | null = null;
+let matchTimer: ReturnType<typeof setTimeout> | null = null;
+
+let matchInterval: ReturnType<typeof setInterval> | null = null;
+
+function startMatchTimer() {
+    if (matchInterval) {
+        clearInterval(matchInterval);
+        matchInterval = null;
+    }
+    gameState.matchStartTimestamp = Date.now();
+    gameState.isOvertime = false;
+
+    matchInterval = setInterval(() => {
+        const elapsed = Date.now() - (gameState.matchStartTimestamp ?? 0);
+
+        // 60 sekund = 60000 ms
+        if (elapsed >= 60000) {
+            if (matchInterval) {
+                clearInterval(matchInterval);
+                matchInterval = null;
+            }
+            const scores = window.gameRoom._room.getScores();
+            if (!scores) return;
+
+            if (scores.red === scores.blue) {
+                window.gameRoom._room.sendAnnouncement("⏰ Time's up! Starting 30s overtime.", null, 0xFFD700, "bold", 2);
+                startOvertimeTimer();
+            } else {
+                window.gameRoom._room.sendAnnouncement("⏰ Time's up! The match has ended.", null, 0xFFD700, "bold", 2);
+                setTimeout(() => {
+                    window.gameRoom._room.stopGame();
+                    handleMatchEnd();
+                }, 3000);
+            }
+        }
+    }, 1000);
+}
 
 function startOvertimeTimer() {
-    const overtimeDuration = 90 * 1000;
+    gameState.isOvertime = true;
     if (overtimeTimer) clearTimeout(overtimeTimer);
     overtimeTimer = setTimeout(() => {
-        window.gameRoom._room.sendAnnouncement("⏰ The overtime has ended!", null, 0xFFD700, "bold", 1);
-        window.gameRoom._room.stopGame();
-        handleMatchEnd();
-    }, overtimeDuration);
+        const scores = window.gameRoom._room.getScores();
+        if (!scores) return;
+
+        if (scores.red === scores.blue) {
+            window.gameRoom._room.sendAnnouncement("🤝 Overtime ended in a draw! New players are joining.", null, 0xFFD700, "bold", 2);
+        } else {
+            window.gameRoom._room.sendAnnouncement("🏁 Overtime is over!", null, 0xFFD700, "bold", 2);
+        }
+
+        setTimeout(() => {
+            window.gameRoom._room.stopGame();
+            handleMatchEnd();
+        }, 3000);
+    }, 30 * 1000);
 }
+
+function resetAllTimers() {
+    if (matchTimer) clearTimeout(matchTimer);
+    if (overtimeTimer) clearTimeout(overtimeTimer);
+}
+
 
 function resetOvertimeTimer() {
     if (overtimeTimer) clearTimeout(overtimeTimer);
@@ -82,8 +139,10 @@ function tryStartMatch() {
     }
 }
 
+
 // funkcja: po zakończeniu meczu — obsługa wyników i kolejki
 function handleMatchEnd() {
+    gameState.isOvertime = false;
     const scores = window.gameRoom._room.getScores();
     if (!scores) return;
 
@@ -139,4 +198,5 @@ function handleMatchEnd() {
     }
 }
 
-export { gameState, startOvertimeTimer, resetOvertimeTimer, tryStartMatch, handleMatchEnd, updateQueue };
+
+export { gameState, startOvertimeTimer, resetOvertimeTimer, tryStartMatch, handleMatchEnd, updateQueue, startMatchTimer, resetAllTimers };

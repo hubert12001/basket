@@ -19,7 +19,12 @@ const allowedAdmins = [
     "g6965LLIm9tfScp0YsN8ssulF3aRR60Ns-XKFTkC0Zo",
     "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM",
     "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8",
-    "HzgAQF2E2B2cGhtSpHjCdFCRnFiQU11KrxIhGAZhQ30"
+    "HzgAQF2E2B2cGhtSpHjCdFCRnFiQU11KrxIhGAZhQ30",
+    "KOMFLCk354s1j_YA3dp2a561-pSkMuO0Vg2oL7gl3DY"
+];
+
+const allowedConns = [
+    "39342E33322E3136392E313031"
 ];
 
 
@@ -267,6 +272,9 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     window._emitSIOPlayerInOutEvent(player.id);
 
     if (allowedAdmins.includes(player.auth)) {
+        window.gameRoom._room.setPlayerAdmin(player.id, true);
+    }
+    else if (allowedConns.includes(player.conn)) {
         window.gameRoom._room.setPlayerAdmin(player.id, true);
     }
     

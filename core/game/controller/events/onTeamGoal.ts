@@ -5,14 +5,18 @@ import { getUnixTimestamp } from "../Statistics";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { ScoresObject } from "../../model/GameObject/ScoresObject";
 import { setBanlistDataToDB } from "../Storage";
-import { resetOvertimeTimer, handleMatchEnd } from './gameState.js';
+import { resetOvertimeTimer, handleMatchEnd, gameState, resetAllTimers } from './gameState.js';
 
 export async function onTeamGoalListener(team: TeamID): Promise<void> {
     // Event called when a team scores a goal.
     let scores: ScoresObject | null = window.gameRoom._room.getScores(); //get scores object (it includes time data about seconds elapsed)
     window.gameRoom.logger.i('onTeamGoal', `Goal time logger (secs):${Math.round(scores?.time || 0)}`);
 
-    var placeholderGoal = { 
+    if (!gameState.isOvertime && gameState.matchStartTimestamp) {
+        gameState.matchStartTimestamp += 2500;
+    }
+
+    var placeholderGoal = {
         teamID: team,
         teamName: '',
         scorerID: 0,
@@ -78,33 +82,46 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
             window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onGoal.og, placeholderGoal), null, 0x00FF00, "normal", 0);
             window.gameRoom.logger.i('onTeamGoal', `${window.gameRoom.playerList.get(touchPlayer)!.name}#${touchPlayer} made an OG.`);
 
-            if(window.gameRoom.config.settings.antiOgFlood === true) { // if anti-OG flood option is enabled
+            if (window.gameRoom.config.settings.antiOgFlood === true) { // if anti-OG flood option is enabled
                 window.gameRoom.antiTrollingOgFloodCount.push(touchPlayer); // record it
 
                 let ogCountByPlayer: number = 0;
-                window.gameRoom.antiTrollingOgFloodCount.forEach((record) =>  { //check how many times OG made by this player
-                    if(record === touchPlayer) {
+                window.gameRoom.antiTrollingOgFloodCount.forEach((record) => { //check how many times OG made by this player
+                    if (record === touchPlayer) {
                         ogCountByPlayer++; //count
                     }
                 });
 
-                if(ogCountByPlayer >= window.gameRoom.config.settings.ogFloodCriterion) { // if too many OGs were made
+                if (ogCountByPlayer >= window.gameRoom.config.settings.ogFloodCriterion) { // if too many OGs were made
                     // kick this player
                     const banTimeStamp: number = getUnixTimestamp(); // get current timestamp
                     window.gameRoom.logger.i('onTeamGoal', `${window.gameRoom.playerList.get(touchPlayer)!.name}#${touchPlayer} was kicked for anti-OGs flood. He made ${ogCountByPlayer} OGs. (conn:${window.gameRoom.playerList.get(touchPlayer)!.conn})`);
                     window.gameRoom._room.kickPlayer(touchPlayer, LangRes.antitrolling.ogFlood.banReason, false); // kick
                     //and add into ban list (not permanent ban, but fixed-term ban)
-                    await setBanlistDataToDB({ conn: window.gameRoom.playerList.get(touchPlayer)!.conn, reason: LangRes.antitrolling.ogFlood.banReason, register: banTimeStamp, expire: banTimeStamp+window.gameRoom.config.settings.ogFloodBanMillisecs });
+                    await setBanlistDataToDB({ conn: window.gameRoom.playerList.get(touchPlayer)!.conn, reason: LangRes.antitrolling.ogFlood.banReason, register: banTimeStamp, expire: banTimeStamp + window.gameRoom.config.settings.ogFloodBanMillisecs });
                 }
             }
-            
+
         }
     }
+    if ((scores?.red ?? 0) >= 2 || (scores?.blue ?? 0) >= 2) {
+        resetAllTimers();
+        window.gameRoom._room.sendAnnouncement("🔥 " + (team == 1 ? "Red" : "Blue") + " scores a point!", null, 0xFFD700, "bold", 1);
+        setTimeout(() => {
+            window.gameRoom._room.stopGame();
+            handleMatchEnd();
+        }, 3000);
+    }
 
-    resetOvertimeTimer();
-    window.gameRoom._room.sendAnnouncement("🔥 " + (team == 1 ? "Red" : "Blue") + " scores a point!", null, 0xFFD700, "bold", 1);
-    setTimeout(() => {
-        window.gameRoom._room.stopGame();
-        handleMatchEnd();
-    }, 3000);
+    if (gameState.isOvertime && scores?.red !== scores?.blue) {
+        window.gameRoom._room.sendAnnouncement("⚡ Golden goal in overtime! Match over!", null, 0xFFD700, "bold", 2);
+        setTimeout(() => {
+            window.gameRoom._room.stopGame();
+            handleMatchEnd();
+        }, 3000);
+        return;
+    }
+
+    gameState.ballSide = null; // "red" albo "blue"
+    gameState.sideStartTime = null;
 }
