@@ -20,7 +20,8 @@ const allowedAdmins = [
     "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM",
     "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8",
     "HzgAQF2E2B2cGhtSpHjCdFCRnFiQU11KrxIhGAZhQ30",
-    "KOMFLCk354s1j_YA3dp2a561-pSkMuO0Vg2oL7gl3DY"
+    "KOMFLCk354s1j_YA3dp2a561-pSkMuO0Vg2oL7gl3DY",
+    "m9kiuCZTTNCcWQrAZh6e4a6fYsob--gTdhBjh397MH4"
 ];
 
 const allowedConns = [
@@ -277,7 +278,11 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     else if (allowedConns.includes(player.conn)) {
         window.gameRoom._room.setPlayerAdmin(player.id, true);
     }
-    
-    updateQueue();
-    tryStartMatch();
+    const isBasketball =
+    window.gameRoom.config._RUID === "basketball";
+
+    if (isBasketball) {
+        updateQueue();
+        tryStartMatch();
+    }
 }

@@ -31,16 +31,6 @@ function getPlayerPrefix(rating: number) {
 }
 
 // =======================
-// Funkcja do obliczania miejsca gracza
-// =======================
-function getPlayerRank(player: PlayerObject, allPlayers: PlayerObject[]) {
-    const sorted = [...allPlayers].sort(
-        (a, b) => ((b as any).stats?.rating ?? 0) - ((a as any).stats?.rating ?? 0)
-    );
-    return sorted.findIndex(p => p.id === player.id) + 1;
-}
-
-// =======================
 // Główna funkcja obsługi czatu
 // =======================
 export function onPlayerChatListener(player: PlayerObject, message: string): boolean {
@@ -95,7 +85,7 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         // Pobierz listę obiektów graczy AFK
         const afkPlayerNames = gameState.afkPlayers
             .map(id => window.gameRoom.playerList.get(id))
-            .filter(p => p) // usuń undefined, gdyby ktoś wyszedł
+            .filter(p => p)
             .map(p => p?.name);
 
         const afkList = afkPlayerNames.join(", ");
@@ -103,6 +93,7 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         window.gameRoom._room.sendAnnouncement(`💤 Players AFK: ${afkList}`, player.id, 0xFFFF00, "bold", 1);
         return false;
     }
+
     // ========= Commands =========
     if (isCommandString(message)) {
         parseCommand(player, message);
@@ -147,23 +138,44 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         return false;
     }
 
-    // === Prefix i ranking ===
-    const allPlayers = Array.from(window.gameRoom.playerList.values());
+    const isBasketball = window.gameRoom.config._RUID === "basketball";
 
-    const playerData = window.gameRoom.playerList.get(player.id);
-    const rating = playerData?.stats?.rating ?? 0;
+    if (isBasketball) {
+        // pobieramy pełny obiekt z listy graczy
+        const playerData = window.gameRoom.playerList.get(player.id);
 
-    let prefix = getPlayerPrefix(rating);
+        if (!playerData) {
+            console.log("DEBUG: player not found in playerList");
+            return true; // lub false, jeśli chcesz zablokować wysłanie
+        }
 
-    let displayPrefix = `[${prefix}]`;
-    let color = 0xFFFFFF;
-    if (player.admin) displayPrefix = `[👑 Admin][${prefix}]`;
-    if (player.auth=="EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") {
-        color = 0xFF0000
-        prefix = ""
+        const rating = playerData.stats.rating ?? 0;
+
+        let prefix = getPlayerPrefix(rating);
+        let displayPrefix = `[${prefix}]`;
+        if (playerData.admin) displayPrefix = `[👑 Admin][${prefix}]`;
+
+        // ===== Top 3 gracze medal + kolor =====
+        let medalPrefix = "";
+        let medalColor = 0xFFFFFF; // domyślny biały
+
+        if (playerData.auth === "m9kiuCZTTNCcWQrAZh6e4a6fYsob--gTdhBjh397MH4" || playerData.auth === "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8") {
+            medalPrefix = "[🥇]";
+            medalColor = 0xFFD700;
+        } else if (playerData.auth === "MvfahQ_9EfqRwmfIOANPYpbY1A_gsK5xOc9v9yDDYkU") {
+            medalPrefix = "[🥈]";
+            medalColor = 0xFF8300;
+        } else if (playerData.auth === "qO4d1F7Tujq3kzUeXSXO52NrBlohuINfP78VCqXFJ1A") {
+            medalPrefix = "[🥉]";
+            medalColor = 0xCD7F32;
+        } else if(playerData.auth=== "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") { // Mamba
+            medalColor = 0xFF00EE;
+        }
+
+        const prefixedMessage = `${medalPrefix}${displayPrefix} ${playerData.name}: ${message}`;
+        window.gameRoom._room.sendAnnouncement(prefixedMessage, null, medalColor, "normal", 1);
+        return false;
+    } else {
+        return true;
     }
-
-    const prefixedMessage = `${displayPrefix} ${player.name}: ${message}`;
-    window.gameRoom._room.sendAnnouncement(prefixedMessage, null, color, "normal", 1);
-    return false;
 }

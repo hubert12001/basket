@@ -98,24 +98,29 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
 
     // emit websocket event
     window._emitSIOPlayerInOutEvent(player.id);
+    
+    const isBasketball =
+    window.gameRoom.config._RUID === "basketball";
 
-    gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
-    updateQueue();
+    if (isBasketball) {
+        gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
+        updateQueue();
 
-    const reds = window.gameRoom._room.getPlayerList().filter(p => p.team === 1);
-    const blues = window.gameRoom._room.getPlayerList().filter(p => p.team === 2);
-    const spec = gameState.queue;
-    const totalPlaying = reds.length + blues.length + spec.length;
+        const reds = window.gameRoom._room.getPlayerList().filter(p => p.team === 1);
+        const blues = window.gameRoom._room.getPlayerList().filter(p => p.team === 2);
+        const spec = gameState.queue;
+        const totalPlaying = reds.length + blues.length + spec.length;
 
-    // jeśli był mecz i zostaje mniej niż 2 graczy w drużynach
-    const gameInProgress = window.gameRoom._room.getScores() !== null;
-    if (gameInProgress && totalPlaying < 2) {
-        window.gameRoom._room.sendAnnouncement("⚠️ Za mało graczy — mecz przerwany.", null, 0xFFAA00, "bold", 1);
-        window.gameRoom._room.stopGame();
+        // jeśli był mecz i zostaje mniej niż 2 graczy w drużynach
+        const gameInProgress = window.gameRoom._room.getScores() !== null;
+        if (gameInProgress && totalPlaying < 2) {
+            window.gameRoom._room.sendAnnouncement("⚠️ Za mało graczy — mecz przerwany.", null, 0xFFAA00, "bold", 1);
+            window.gameRoom._room.stopGame();
 
-        // przenosimy wszystkich na spect
-        reds.concat(blues).forEach(p => window.gameRoom._room.setPlayerTeam(p.id, 0));
+            // przenosimy wszystkich na spect
+            reds.concat(blues).forEach(p => window.gameRoom._room.setPlayerTeam(p.id, 0));
+        }
+
+        tryStartMatch(); // spróbuj rozpocząć nowy mecz, jeśli ktoś czeka w kolejce
     }
-
-    tryStartMatch(); // spróbuj rozpocząć nowy mecz, jeśli ktoś czeka w kolejce
 }

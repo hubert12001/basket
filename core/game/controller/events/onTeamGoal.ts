@@ -72,7 +72,7 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
                 //setPlayerData(window.playerList.get(assistPlayer)!);
                 goalMsg = Tst.maketext(LangRes.onGoal.goalWithAssist, placeholderGoal);
             }
-            window.gameRoom._room.sendAnnouncement(goalMsg, null, 0x00FF00, "normal", 0);
+            window.gameRoom._room.sendAnnouncement(goalMsg, null, 0xFFFF00, "normal", 0);
             window.gameRoom.logger.i('onTeamGoal', goalMsg);
         } else { // if the goal is OG
             placeholderGoal.ogID = touchPlayer;
@@ -104,24 +104,35 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
 
         }
     }
-    if ((scores?.red ?? 0) >= 2 || (scores?.blue ?? 0) >= 2) {
-        resetAllTimers();
-        window.gameRoom._room.sendAnnouncement("🔥 " + (team == 1 ? "Red" : "Blue") + " scores a point!", null, 0xFFD700, "bold", 1);
-        setTimeout(() => {
-            window.gameRoom._room.stopGame();
-            handleMatchEnd();
-        }, 3000);
-    }
-
-    if (gameState.isOvertime && scores?.red !== scores?.blue) {
-        window.gameRoom._room.sendAnnouncement("⚡ Golden goal in overtime! Match over!", null, 0xFFD700, "bold", 2);
-        setTimeout(() => {
-            window.gameRoom._room.stopGame();
-            handleMatchEnd();
-        }, 3000);
-        return;
-    }
-
-    gameState.ballSide = null; // "red" albo "blue"
+    gameState.ballSide = null;
     gameState.sideStartTime = null;
+    
+    const isBasketball =
+        window.gameRoom.config._RUID === "basketball";
+
+    if (isBasketball) {
+
+        if ((scores?.red ?? 0) >= 2 || (scores?.blue ?? 0) >= 2) {
+            resetAllTimers();
+            setTimeout(() => {
+                window.gameRoom._room.stopGame();
+                handleMatchEnd();
+            }, 3000);
+        }
+
+        if (gameState.isOvertime && scores?.red !== scores?.blue) {
+            window.gameRoom._room.sendAnnouncement(
+                "⚡ Golden goal in overtime! Match over!",
+                null,
+                0xFFD700,
+                "bold",
+                2
+            );
+            setTimeout(() => {
+                window.gameRoom._room.stopGame();
+                handleMatchEnd();
+            }, 3000);
+            return;
+        }
+    }
 }

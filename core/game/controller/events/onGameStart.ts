@@ -102,8 +102,12 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
     } else {
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.stopRecord, placeholderStart), null, 0x00FF00, "normal", 0);
     }
+    const isBasketball =
+    window.gameRoom.config._RUID === "basketball";
 
-    startMatchTimer();
+    if (isBasketball) {
+        startMatchTimer();
+    }
     gameState.ballSide = null; // "red" albo "blue"
     gameState.sideStartTime = null;
 

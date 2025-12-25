@@ -17,7 +17,7 @@ export class HElo {
     private readonly PLACEMENT_MATCHES = 10;
     private readonly PLACEMENT_BONUS = 1.25;
     private readonly MAX_XP_PER_MATCH = 40;
-    private readonly RATING_CAP = 3000;
+    private readonly RATING_CAP = 10000;
 
     private expectedResult(rA: number, rB: number): number {
         return 1 / (1 + Math.pow(10, (rB - rA) / this.D));

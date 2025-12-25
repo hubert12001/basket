@@ -230,9 +230,9 @@ export const onTouch = {
 }
 
 export const onGoal = {
-    goal: '⚽️ {scorerName}#{scorerID} scored!!'
-    ,goalWithAssist: '⚽️ {scorerName}#{scorerID} made a goal! (assisted by {assistName}#{assistID})'
-    ,og: '⚽️ {ogName}#{ogID} made an OG.'
+    goal: '🏀 {scorerName}#{scorerID} scores a point!!'
+    ,goalWithAssist: '🏀 {scorerName}#{scorerID} made a goal! (assisted by {assistName}#{assistID})'
+    ,og: '🏀 {ogName}#{ogID} made an OG.'
 }
 
 export const onAdminChange = {

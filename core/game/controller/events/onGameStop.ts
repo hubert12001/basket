@@ -65,6 +65,10 @@ export function onGameStopListener(byPlayer: PlayerObject): void {
         window.gameRoom._room.startGame(); // start next new game
     }
 
-    resetAllTimers();
-    handleMatchEnd();
+    const isBasketball =
+    window.gameRoom.config._RUID === "basketball";
+
+    if (isBasketball) {
+        resetAllTimers();
+    }
 }
