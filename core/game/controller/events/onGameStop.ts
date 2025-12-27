@@ -5,6 +5,7 @@ import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { recuritBothTeamFully } from "../../model/OperateHelper/Quorum";
 import { setDefaultRoomLimitation, setDefaultStadiums } from "../RoomTools";
 import { resetOvertimeTimer, handleMatchEnd, resetAllTimers } from './gameState.js';
+import { draftState, draft, Team, clearPickTimer, enforceDynamicMode, delayedDraftCheck, canStartGame, spectators } from "./basket3vs3";
 
 export function onGameStopListener(byPlayer: PlayerObject): void {
     /*
@@ -68,7 +69,64 @@ export function onGameStopListener(byPlayer: PlayerObject): void {
     const isBasketball =
     window.gameRoom.config._RUID === "basketball";
 
+    const isBasket3vs3 =
+    window.gameRoom.config._RUID === "basket3vs3";
+
     if (isBasketball) {
         resetAllTimers();
+    }
+    if (isBasket3vs3) {
+        draftState.gameRunning = false;
+        
+        if (draftState.lastWinner === null) {
+            // [FIX] Fix for manual stop (e.g. reduction)
+            setTimeout(() => {
+                enforceDynamicMode();
+                delayedDraftCheck();
+    
+                setTimeout(() => {
+                    if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                        window.gameRoom._room.startGame();
+                    }
+                }, 150);
+            }, 100);
+            return;
+        }
+    
+        draftState.postGameLock = true;
+    
+        var winner = draftState.lastWinner;
+        var loser = winner === Team.RED ? Team.BLUE : Team.RED;
+    
+        window.gameRoom._room.getPlayerList()
+            .filter(p => p.team === loser)
+            .forEach(p => window.gameRoom._room.setPlayerTeam(p.id, Team.SPECTATORS));
+    
+        setTimeout(() => {
+            var specs = spectators();
+            if (specs.length > 0) {
+                window.gameRoom._room.setPlayerTeam(specs[0].id, loser);
+            }
+    
+            draft.active = false;
+            draft.mode = null;
+            draft.picksLeft = 0;
+            draft.turn = loser;
+            draft.pickerId = null;
+    
+            draftState.postGameLock = false;
+            draftState.lastWinner = null;
+    
+            enforceDynamicMode();
+            delayedDraftCheck();
+            clearPickTimer();
+    
+            setTimeout(() => {
+                if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                    window.gameRoom._room.startGame();
+                }
+            }, 150);
+    
+        }, 300);
     }
 }

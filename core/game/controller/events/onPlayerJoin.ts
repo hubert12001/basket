@@ -10,7 +10,7 @@ import { recuritByOne, roomActivePlayersNumberCheck, roomTeamPlayersNumberCheck 
 import { decideTier, getAvatarByTier, Tier } from "../../model/Statistics/Tier";
 import { isExistNickname, isIncludeBannedWords } from "../TextFilter";
 import { updateQueue, tryStartMatch } from './gameState.js';
-
+import { count, draft, Team, delayedStart, delayedDraftCheck, showDraft } from "./basket3vs3";
 
 const allowedAdmins = [
     "z6D837qxvbBu0viJAjtSqCn2VJ69tjbxwOYja1du9iY", // <--- wstaw tutaj swoje ID
@@ -280,9 +280,29 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     }
     const isBasketball =
     window.gameRoom.config._RUID === "basketball";
+    
+    const isBasket3vs3 =
+    window.gameRoom.config._RUID === "basket3vs3";
 
     if (isBasketball) {
         updateQueue();
         tryStartMatch();
+    }
+    else if (isBasket3vs3) {
+        
+        if (count(Team.RED) === 0) {
+            window.gameRoom._room.setPlayerTeam(player.id, Team.RED);
+        } else if (count(Team.BLUE) === 0) {
+            window.gameRoom._room.setPlayerTeam(player.id, Team.BLUE);
+            delayedStart();
+        } else {
+            window.gameRoom._room.setPlayerTeam(player.id, Team.SPECTATORS);
+        }
+    
+        if (draft.active) {
+            setTimeout(showDraft, 50);
+        } else {
+            delayedDraftCheck();
+        }
     }
 }

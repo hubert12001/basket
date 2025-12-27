@@ -5,6 +5,7 @@ import { isCommandString, parseCommand } from "../Parser";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { isIncludeBannedWords } from "../TextFilter";
 import { gameState, updateQueue, tryStartMatch } from './gameState.js';
+import { draftState, draft, pickPlayer } from "./basket3vs3";
 
 // =======================
 // Definicja rang i funkcja do prefixu
@@ -139,6 +140,7 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
     }
 
     const isBasketball = window.gameRoom.config._RUID === "basketball";
+    const isBasket3vs3 = window.gameRoom.config._RUID === "basket3vs3";
 
     if (isBasketball) {
         // pobieramy pełny obiekt z listy graczy
@@ -175,7 +177,38 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         const prefixedMessage = `${medalPrefix}${displayPrefix} ${playerData.name}: ${message}`;
         window.gameRoom._room.sendAnnouncement(prefixedMessage, null, medalColor, "normal", 1);
         return false;
-    } else {
+    } 
+    else if (isBasket3vs3) {
+        const playerData = window.gameRoom.playerList.get(player.id);
+
+        if (!playerData) {
+            console.log("DEBUG: player not found in playerList");
+            return true;
+        }
+
+        const rating = playerData.stats.rating ?? 0;
+
+        let prefix = getPlayerPrefix(rating);
+        let displayPrefix = `[${prefix}]`;
+        if (playerData.admin) displayPrefix = `[👑 Admin][${prefix}]`;
+
+        let medalPrefix = "";
+        let medalColor = 0xFFFFFF;
+        const prefixedMessage = `${medalPrefix}${displayPrefix} ${playerData.name}: ${message}`;
+        window.gameRoom._room.sendAnnouncement(prefixedMessage, null, medalColor, "normal", 1);
+        
+        if (draftState.postGameLock) return false;
+        if (!draft.active) return false;
+ 
+        if (player.id !== draft.pickerId) return false;
+
+        var n = parseInt(message, 10);
+        if (isNaN(n)) return false;
+
+        pickPlayer(n - 1);
+        return false;
+    }
+    else {
         return true;
     }
 }

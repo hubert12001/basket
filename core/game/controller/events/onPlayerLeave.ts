@@ -7,6 +7,7 @@ import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { recuritByOne, roomActivePlayersNumberCheck, roomTeamPlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { convertToPlayerStorage, getBanlistDataFromDB, setBanlistDataToDB, setPlayerDataToDB } from "../Storage";
 import { updateQueue, tryStartMatch, gameState } from './gameState.js';
+import { draftState, draft, smartBalance, isDraftStillValid, resetDraftHard, ensureOnePlayerPerTeam, enforceDynamicMode, rollbackIfNoSpecs, delayedDraftCheck, canStartGame, spectators, clearPickTimer } from "./basket3vs3";
 
 export async function onPlayerLeaveListener(player: PlayerObject): Promise<void> {
     // Event called when a player leaves the room.
@@ -101,6 +102,9 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
     
     const isBasketball =
     window.gameRoom.config._RUID === "basketball";
+    
+    const isBasket3vs3 =
+    window.gameRoom.config._RUID === "basket3vs3";
 
     if (isBasketball) {
         gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
@@ -122,5 +126,58 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
         }
 
         tryStartMatch(); // spróbuj rozpocząć nowy mecz, jeśli ktoś czeka w kolejce
+    }
+    else if (isBasket3vs3) {
+        
+    var pickerLeft = draft.active && player.id === draft.pickerId;
+
+    if (pickerLeft) {
+        resetDraftHard();
+    }
+
+    var reduced = enforceDynamicMode();
+
+    if (draftState.gameRunning && reduced) {
+        window.gameRoom._room.sendAnnouncement("🔄 Restartowanie gry dla nowego trybu...", null, 0xFFFF00, "bold", 1);
+        window.gameRoom._room.stopGame();
+        return;
+    }
+
+    setTimeout(() => {
+        if (draftState.afkKickInDraft) {
+            delayedDraftCheck();
+            return;
+        }
+
+        if (draft.active && !isDraftStillValid()) {
+            resetDraftHard();
+            rollbackIfNoSpecs();
+
+            setTimeout(() => {
+                if (!draftState.gameRunning && canStartGame()) {
+                    window.gameRoom._room.startGame();
+                }
+            }, 100);
+            return;
+        }
+
+        if (!draftState.hardResetLock) {
+            smartBalance();
+        }
+
+        delayedDraftCheck();
+        clearPickTimer();
+
+        setTimeout(() => {
+            if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                window.gameRoom._room.startGame();
+            }
+        }, 200);
+
+    }, 100);
+
+    setTimeout(() => {
+        ensureOnePlayerPerTeam();
+    }, 150);
     }
 }

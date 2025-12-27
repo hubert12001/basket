@@ -7,6 +7,7 @@ import { roomTeamPlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { decideTier, getAvatarByTier, Tier } from "../../model/Statistics/Tier";
 import { setBanlistDataToDB } from "../Storage";
 import { gameState, startMatchTimer } from './gameState.js';
+import { draftState } from "./basket3vs3";
 
 export function onGameStartListener(byPlayer: PlayerObject | null): void {
     /* Event called when a game starts.
@@ -105,11 +106,20 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
     const isBasketball =
     window.gameRoom.config._RUID === "basketball";
 
+    const isBasket3vs3 =
+    window.gameRoom.config._RUID === "basket3vs3";
+
     if (isBasketball) {
         startMatchTimer();
+        gameState.ballSide = null; // "red" albo "blue"
+        gameState.sideStartTime = null;
     }
-    gameState.ballSide = null; // "red" albo "blue"
-    gameState.sideStartTime = null;
+
+    else if (isBasket3vs3) {
+        draftState.gameRunning = true;
+        draftState.justStarted = true;
+        setTimeout(() => draftState.justStarted = false, 200);
+    }
 
     // replay record start
     window.gameRoom._room.startRecording();

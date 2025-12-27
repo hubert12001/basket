@@ -1,5 +1,6 @@
 import { PlayerObject } from "../../model/GameObject/PlayerObject";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
+import { draftState, initAntiMacro, cleanupAntiMacro } from "./basket3vs3";
 
 export function onPlayerBallKickListener(player: PlayerObject): void {
     // Event called when a player kicks the ball.
@@ -31,5 +32,39 @@ export function onPlayerBallKickListener(player: PlayerObject): void {
         window.gameRoom.ballStack.push(player.id);
         window.gameRoom.ballStack.possCount(player.team); // 1: red team, 2: blue team
 
+    }
+
+    const isBasket3vs3 =
+    window.gameRoom.config._RUID === "basket3vs3";
+
+    if (isBasket3vs3) {
+        if (!draftState.antiMacro[player.id]) {
+        initAntiMacro(player.id);
+        }
+
+        var data = draftState.antiMacro[player.id];
+        var now = Date.now();
+
+        // Dodaj czas kopnięcia
+        data.kicks.push(now);
+
+        // Usuń stare kopnięcia (starsze niż 0.5s = 500ms)
+        data.kicks = data.kicks.filter(function(t : number) {
+            return now - t < 500;
+        });
+
+        // Sprawdź czy 5+ kopnięć w 0.5s
+        if (data.kicks.length >= 5) {
+            data.kicks = [];
+
+            if (!data.warned) {
+                // Pierwsze wykrycie - ostrzeżenie
+                data.warned = true;
+                window.gameRoom._room.sendAnnouncement("⚠️ " + player.name + " - WARNING! Macro detected. Next time = kick!", null, 0xFFAA00, "bold", 1);
+            } else {
+                // Drugie wykrycie - kick
+                window.gameRoom._room.kickPlayer(player.id, "MACRO", false);
+            }
+        }
     }
 }
