@@ -53,8 +53,8 @@ export function onPlayerBallKickListener(player: PlayerObject): void {
             return now - t < 500;
         });
 
-        // Sprawdź czy 5+ kopnięć w 0.5s
-        if (data.kicks.length >= 5) {
+        // Sprawdź czy 3+ kopnięć w 0.3s
+        if (data.kicks.length >= 3) {
             data.kicks = [];
 
             if (!data.warned) {

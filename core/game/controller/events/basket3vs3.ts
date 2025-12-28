@@ -44,19 +44,19 @@ const draftState: DraftState = {
     antiMacro: {}
 };
 
-function initAntiMacro(playerId : Player['id']) {
+function initAntiMacro(playerId: Player['id']) {
     draftState.antiMacro[playerId] = {
         kicks: [],
         warned: false
     };
 }
 
-function cleanupAntiMacro(playerId : Player['id']) {
+function cleanupAntiMacro(playerId: Player['id']) {
     delete draftState.antiMacro[playerId];
 }
 
 function enforceDynamicMode() {
-    var allPlayers = window.gameRoom._room.getPlayerList()
+    var allPlayers = window.gameRoom._room.getPlayerList();
     var total = allPlayers.length;
     var limit = 3;
 
@@ -84,15 +84,13 @@ function enforceDynamicMode() {
     return changed;
 }
 
-
-
 // ===== UTILS =====
 function count(team: TeamID) {
     return window.gameRoom._room.getPlayerList().filter(p => p.team === team).length;
 }
 
 function spectators() {
-    return window.gameRoom._room.getPlayerList().filter(p => p.team === 0 && !gameState.afkPlayers.includes(p.id)); // pomijaj AFK
+    return window.gameRoom._room.getPlayerList().filter(p => p.team === 0 && !gameState.afkPlayers.includes(p.id));
 }
 
 function delayedStart() {
@@ -172,7 +170,6 @@ function startPickTimer(): void {
             clearPickTimer();
             draftState.afkKickInDraft = true;
 
-            // Bezpieczne wywołanie kickPlayer tylko jeśli picker istnieje
             if (picker) {
                 window.gameRoom._room.kickPlayer(picker.id, "AFK", false);
             }
@@ -342,9 +339,22 @@ function delayedDraftCheck() {
 
 // ===== UI =====
 function showDraft() {
+    var specs = spectators();
+    
+    if (specs.length === 0) {
+        resetDraftHard();
+        forceEvenTeams();
+        setTimeout(() => {
+            if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                window.gameRoom._room.startGame();
+            }
+        }, 150);
+        return;
+    }
+
     window.gameRoom._room.sendAnnouncement("📋 Wybierz zawodnika:", null, 0xaaaaaa, "bold", 1);
 
-    spectators().forEach((p, i) => {
+    specs.forEach((p, i) => {
         window.gameRoom._room.sendAnnouncement((i + 1) + ". " + p.name, null, 0xaaaaaa, null, 1);
     });
 
@@ -360,10 +370,19 @@ function showDraft() {
 }
 
 // ===== PICK =====
-function pickPlayer(index : number) {
+function pickPlayer(index: number) {
     if (!isDraftStillValid()) {
         resetDraftHard();
-        delayedDraftCheck();
+        forceEvenTeams();
+        
+        setTimeout(() => {
+            delayedDraftCheck();
+            setTimeout(() => {
+                if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                    window.gameRoom._room.startGame();
+                }
+            }, 200);
+        }, 100);
         return;
     }
 
@@ -400,4 +419,81 @@ function pickPlayer(index : number) {
     clearPickTimer();
 }
 
-export { draftState, draft, Team, pickPlayer, showDraft, enforceDynamicMode, count, delayedStart, delayedDraftCheck, canStartGame, spectators, clearPickTimer, ensureOnePlayerPerTeam, resetDraftHard, smartBalance, isDraftStillValid, rollbackIfNoSpecs, initAntiMacro, cleanupAntiMacro };
+// ===== HANDLE AFK CHANGE DURING DRAFT =====
+function handleAfkChange(playerId: number, isNowAfk: boolean): void {
+    if (draft.active) {
+        if (isNowAfk) {
+            // Gracz poszedł AFK podczas draftu
+            if (!isDraftStillValid()) {
+                window.gameRoom._room.sendAnnouncement(
+                    `⚠️ Draft przerwany - niewystarczająca liczba graczy`,
+                    null,
+                    0xFFFF00,
+                    "bold",
+                    1
+                );
+
+                resetDraftHard();
+
+                setTimeout(() => {
+                    forceEvenTeams();
+
+                    setTimeout(() => {
+                        delayedDraftCheck();
+
+                        setTimeout(() => {
+                            if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                                window.gameRoom._room.startGame();
+                            }
+                        }, 200);
+                    }, 150);
+                }, 100);
+            } else {
+                // Draft wciąż ważny, odśwież wyświetlanie
+                clearPickTimer();
+                setTimeout(showDraft, 100);
+            }
+        } else {
+            // Gracz wrócił z AFK podczas draftu - odśwież listę do wyboru
+            clearPickTimer();
+            setTimeout(showDraft, 100);
+        }
+    } else {
+        // Nie ma draftu
+        if (!isNowAfk) {
+            // Ktoś wrócił z AFK - sprawdź czy można coś wystartować
+            setTimeout(() => {
+                delayedDraftCheck();
+                setTimeout(() => {
+                    if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                        window.gameRoom._room.startGame();
+                    }
+                }, 250);
+            }, 100);
+        }
+    }
+}
+
+export {
+    draftState,
+    draft,
+    Team,
+    pickPlayer,
+    showDraft,
+    enforceDynamicMode,
+    count,
+    delayedStart,
+    delayedDraftCheck,
+    canStartGame,
+    spectators,
+    clearPickTimer,
+    ensureOnePlayerPerTeam,
+    resetDraftHard,
+    smartBalance,
+    isDraftStillValid,
+    rollbackIfNoSpecs,
+    initAntiMacro,
+    cleanupAntiMacro,
+    handleAfkChange,
+    forceEvenTeams
+};

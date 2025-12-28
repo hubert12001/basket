@@ -5,7 +5,7 @@ import { isCommandString, parseCommand } from "../Parser";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { isIncludeBannedWords } from "../TextFilter";
 import { gameState, updateQueue, tryStartMatch } from './gameState.js';
-import { draftState, draft, pickPlayer } from "./basket3vs3";
+import { draftState, draft, pickPlayer, handleAfkChange } from "./basket3vs3";
 
 // =======================
 // Definicja rang i funkcja do prefixu
@@ -36,6 +36,8 @@ function getPlayerPrefix(rating: number) {
 // =======================
 export function onPlayerChatListener(player: PlayerObject, message: string): boolean {
     window.gameRoom.logger.i('onPlayerChat', `[${player.name}#${player.id}] ${message}`);
+    const isBasket3vs3 = window.gameRoom.config._RUID === "basket3vs3";
+    const isBasketball = window.gameRoom.config._RUID === "basketball";
 
     const placeholderChat = {
         playerID: player.id,
@@ -67,10 +69,20 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         if (gameState.afkPlayers.includes(player.id)) {
             gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
             window.gameRoom._room.sendAnnouncement(`✅ ${player.name} has returned from AFK and can play.`, null, 0x00FF00, "bold", 1);
-            tryStartMatch();
+            if(isBasketball){
+                tryStartMatch();
+            }
+
+            else if(isBasket3vs3){
+                handleAfkChange(player.id, false);
+            }
+
         } else {
             gameState.afkPlayers.push(player.id);
             window.gameRoom._room.sendAnnouncement(`💤 ${player.name} is now AFK.`, null, 0xFFFF00, "bold", 1);
+            if(isBasket3vs3){
+                handleAfkChange(player.id, true);
+            }
         }
         updateQueue();
         return false;
@@ -138,9 +150,6 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.bannedWords, placeholderChat), player.id, 0xFF0000, "bold", 2);
         return false;
     }
-
-    const isBasketball = window.gameRoom.config._RUID === "basketball";
-    const isBasket3vs3 = window.gameRoom.config._RUID === "basket3vs3";
 
     if (isBasketball) {
         // pobieramy pełny obiekt z listy graczy

@@ -17,7 +17,7 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
         return; // exit this event
     }
 
-    var placeholderLeft = { 
+    var placeholderLeft = {
         playerID: player.id,
         playerName: player.name,
         playerStatsRating: window.gameRoom.playerList.get(player.id)!.stats.rating,
@@ -48,8 +48,8 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
             window.gameRoom.isStatRecord = true;
         }
         // when auto emcee mode is enabled
-        if(window.gameRoom.config.rules.autoOperating === true && window.gameRoom.isGamingNow === true) {
-            if(player.team !== TeamID.Spec) {
+        if (window.gameRoom.config.rules.autoOperating === true && window.gameRoom.isGamingNow === true) {
+            if (player.team !== TeamID.Spec) {
                 // put new players into the team this player has left
                 recuritByOne();
             }
@@ -59,23 +59,23 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
             window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onLeft.stopRecord, placeholderLeft), null, 0x00FF00, "normal", 0);
             window.gameRoom.isStatRecord = false;
             // when auto emcee mode is enabled and lack of players
-            if(window.gameRoom.config.rules.autoOperating === true && window.gameRoom.isGamingNow === true) {
+            if (window.gameRoom.config.rules.autoOperating === true && window.gameRoom.isGamingNow === true) {
                 window.gameRoom._room.stopGame(); // stop for start readymode game
                 window.gameRoom.winningStreak = { // init
                     count: 0,
                     teamID: 0
                 };
-            } 
+            }
         }
     }
 
-    if(window.gameRoom.isGamingNow === true && window.gameRoom.isStatRecord === true && window.gameRoom.playerList.get(player.id)!.team !== TeamID.Spec) {
+    if (window.gameRoom.isGamingNow === true && window.gameRoom.isStatRecord === true && window.gameRoom.playerList.get(player.id)!.team !== TeamID.Spec) {
         // if this player is disconnected (include abscond)
         window.gameRoom.playerList.get(player.id)!.stats.disconns++;
         placeholderLeft.playerStatsDisconns = window.gameRoom.playerList.get(player.id)!.stats.disconns;
-        if(window.gameRoom.config.settings.antiGameAbscond === true) { // if anti abscond option is enabled
+        if (window.gameRoom.config.settings.antiGameAbscond === true) { // if anti abscond option is enabled
             window.gameRoom.playerList.get(player.id)!.stats.rating -= window.gameRoom.config.settings.gameAbscondRatingPenalty; // rating penalty
-            if(await getBanlistDataFromDB(window.gameRoom.playerList.get(player.id)!.conn) === undefined ) { // if this player is in match(team player), fixed-term ban this player
+            if (await getBanlistDataFromDB(window.gameRoom.playerList.get(player.id)!.conn) === undefined) { // if this player is in match(team player), fixed-term ban this player
                 // check this player already registered in ban list to prevent overwriting other ban reason.
                 window.gameRoom.logger.i('onPlayerLeave', `${player.name}#${player.id} has been added in fixed term ban list for abscond.`);
                 await setBanlistDataToDB({ conn: window.gameRoom.playerList.get(player.id)!.conn, reason: LangRes.antitrolling.gameAbscond.banReason, register: leftTimeStamp, expire: leftTimeStamp + window.gameRoom.config.settings.gameAbscondBanMillisecs });
@@ -84,7 +84,7 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
     }
 
     if (window.gameRoom.config.settings.banVoteEnable) { // check vote and reduce
-        if(window.gameRoom.playerList.has(window.gameRoom.playerList.get(player.id)!.voteTarget)) {
+        if (window.gameRoom.playerList.has(window.gameRoom.playerList.get(player.id)!.voteTarget)) {
             window.gameRoom.playerList.get(window.gameRoom.playerList.get(player.id)!.voteTarget)!.voteGet -= 1;
         }
     }
@@ -93,18 +93,18 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
     await setPlayerDataToDB(convertToPlayerStorage(window.gameRoom.playerList.get(player.id)!)); // save
     window.gameRoom.playerList.delete(player.id); // delete from player list
 
-    if(window.gameRoom.config.rules.autoAdmin === true) { // if auto admin option is enabled
+    if (window.gameRoom.config.rules.autoAdmin === true) { // if auto admin option is enabled
         updateAdmins(); // update admin
     }
 
     // emit websocket event
     window._emitSIOPlayerInOutEvent(player.id);
-    
+
     const isBasketball =
-    window.gameRoom.config._RUID === "basketball";
-    
+        window.gameRoom.config._RUID === "basketball";
+
     const isBasket3vs3 =
-    window.gameRoom.config._RUID === "basket3vs3";
+        window.gameRoom.config._RUID === "basket3vs3";
 
     if (isBasketball) {
         gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
@@ -128,56 +128,56 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
         tryStartMatch(); // spróbuj rozpocząć nowy mecz, jeśli ktoś czeka w kolejce
     }
     else if (isBasket3vs3) {
-        
-    var pickerLeft = draft.active && player.id === draft.pickerId;
 
-    if (pickerLeft) {
-        resetDraftHard();
-    }
+        var pickerLeft = draft.active && player.id === draft.pickerId;
 
-    var reduced = enforceDynamicMode();
-
-    if (draftState.gameRunning && reduced) {
-        window.gameRoom._room.sendAnnouncement("🔄 Restartowanie gry dla nowego trybu...", null, 0xFFFF00, "bold", 1);
-        window.gameRoom._room.stopGame();
-        return;
-    }
-
-    setTimeout(() => {
-        if (draftState.afkKickInDraft) {
-            delayedDraftCheck();
-            return;
-        }
-
-        if (draft.active && !isDraftStillValid()) {
+        if (pickerLeft) {
             resetDraftHard();
-            rollbackIfNoSpecs();
+        }
 
-            setTimeout(() => {
-                if (!draftState.gameRunning && canStartGame()) {
-                    window.gameRoom._room.startGame();
-                }
-            }, 100);
+        var reduced = enforceDynamicMode();
+
+        if (draftState.gameRunning && reduced) {
+            window.gameRoom._room.sendAnnouncement("🔄 Restartowanie gry dla nowego trybu...", null, 0xFFFF00, "bold", 1);
+            window.gameRoom._room.stopGame();
             return;
         }
-
-        if (!draftState.hardResetLock) {
-            smartBalance();
-        }
-
-        delayedDraftCheck();
-        clearPickTimer();
 
         setTimeout(() => {
-            if (!draftState.gameRunning && !draft.active && canStartGame()) {
-                window.gameRoom._room.startGame();
+            if (draftState.afkKickInDraft) {
+                delayedDraftCheck();
+                return;
             }
-        }, 200);
 
-    }, 100);
+            if (draft.active && !isDraftStillValid()) {
+                resetDraftHard();
+                rollbackIfNoSpecs();
 
-    setTimeout(() => {
-        ensureOnePlayerPerTeam();
-    }, 150);
+                setTimeout(() => {
+                    if (!draftState.gameRunning && canStartGame()) {
+                        window.gameRoom._room.startGame();
+                    }
+                }, 100);
+                return;
+            }
+
+            if (!draftState.hardResetLock) {
+                smartBalance();
+            }
+
+            delayedDraftCheck();
+            clearPickTimer();
+
+            setTimeout(() => {
+                if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                    window.gameRoom._room.startGame();
+                }
+            }, 200);
+
+        }, 100);
+
+        setTimeout(() => {
+            ensureOnePlayerPerTeam();
+        }, 150);
     }
 }
