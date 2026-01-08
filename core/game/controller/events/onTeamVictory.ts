@@ -101,7 +101,7 @@ export async function onTeamVictoryListener(scores: ScoresObject): Promise<void>
                 const sign = ratingDiff >= 0 ? "+" : "";
                 window.gameRoom._room.sendAnnouncement(
                     `⚡ ${player.name} got ${sign}${ratingDiff.toFixed(2)} ranking points.`,
-                    player.id, 0xFFFF00, "bold", 1
+                    player.id, 0xFFD700, "bold", 1
                 );
             });
 
@@ -125,7 +125,7 @@ export async function onTeamVictoryListener(scores: ScoresObject): Promise<void>
                 const sign = ratingDiff >= 0 ? "+" : "";
                 window.gameRoom._room.sendAnnouncement(
                     `⚡ ${player.name} got ${sign}${ratingDiff.toFixed(2)} ranking points.`,
-                    player.id, 0xFFFF00, "bold", 1
+                    player.id, 0xFFD700, "bold", 1
                 );
             });
 
@@ -241,7 +241,7 @@ export async function onTeamVictoryListener(scores: ScoresObject): Promise<void>
         window.gameRoom.config._RUID === "basket3vs3";
 
     window.gameRoom.logger.i('onTeamVictory', `The game has ended. Scores ${scores.red}:${scores.blue}.`);
-    window.gameRoom._room.sendAnnouncement(winningMessage, null, 0x00FF00, "bold", 1);
+    window.gameRoom._room.sendAnnouncement(winningMessage, null, 0xFFD700, "bold", 1);
 
     if (isBasket3vs3) {
         draftState.lastWinner = scores.red > scores.blue ? Team.RED : Team.BLUE;

@@ -233,3 +233,19 @@ export async function readTopPlayersDB(ruid: string): Promise<PlayerStorage[]> {
         return [];
     }
 }
+
+// Get ALL players for rank calculation (not just top 10)
+export async function readAllPlayersDB(ruid: string): Promise<PlayerStorage[]> {
+    try {
+        const result = await axios.get(`${dbConnAddr}room/${ruid}/player`);
+        if (result.status === 200 && result.data) {
+            winstonLogger.info(`200 Succeed on readAllPlayersDB for room ${ruid}: ${result.data.length} players`);
+            return result.data as PlayerStorage[];
+        } else {
+            return [];
+        }
+    } catch (error) {
+        winstonLogger.error(`Failed on readAllPlayersDB for room ${ruid}: ${error}`);
+        return [];
+    }
+}

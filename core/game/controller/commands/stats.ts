@@ -89,6 +89,6 @@ export function cmdStats(byPlayer: PlayerObject, message?: string): void {
             ? Tst.maketext(LangRes.command.stats.statsMsg + '\n' + LangRes.command.stats.matchAnalysis, placeholder)
             : Tst.maketext(LangRes.command.stats.statsMsg, placeholder)
 
-        window.gameRoom._room.sendAnnouncement(resultMsg, byPlayer.id, 0x479947, "normal", 1);
+        window.gameRoom._room.sendAnnouncement(resultMsg, byPlayer.id, 0xFFD700, "bold", 1);
     }
 }

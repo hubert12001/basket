@@ -90,13 +90,6 @@ function startOvertimeTimer(startTime: number) {
         if (elapsed >= 30) {
             resetAllTimers();
 
-            window.gameRoom._room.sendAnnouncement(
-                scores.red === scores.blue
-                    ? "🤝 Overtime draw!"
-                    : "🏁 Overtime over!",
-                null, 0xFFD700, "bold", 2
-            );
-
             setTimeout(() => {
                 window.gameRoom._room.stopGame();
                 handleMatchEnd();
@@ -137,7 +130,7 @@ function tryStartMatch() {
     if (gameState.queue.length >= 2 && need === 2) {
         window.gameRoom._room.setPlayerTeam(gameState.queue[0], 1); // RED
         window.gameRoom._room.setPlayerTeam(gameState.queue[1], 2); // BLUE
-        window.gameRoom._room.sendAnnouncement("🏀 The match has started!", null, 0x00FF00, "bold", 2);
+        window.gameRoom._room.sendAnnouncement("🏀 The match has started!", null, 0xFFD700, "bold", 2);
         window.gameRoom._room.stopGame();
         window.gameRoom.config.rules.statsRecord = true;
         window.gameRoom.isStatRecord = true;
@@ -153,7 +146,7 @@ function tryStartMatch() {
             window.gameRoom._room.setPlayerTeam(gameState.queue[0], 1); // dołącza do red
         }
 
-        window.gameRoom._room.sendAnnouncement("🏀 The match has started!", null, 0x00FF00, "bold", 2);
+        window.gameRoom._room.sendAnnouncement("🏀 The match has started!", null, 0xFFD700, "bold", 2);
         window.gameRoom._room.stopGame();
         window.gameRoom.config.rules.statsRecord = true;
         window.gameRoom.isStatRecord = true;

@@ -127,13 +127,6 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
         }
 
         if (gameState.isOvertime && scores?.red !== scores?.blue) {
-            window.gameRoom._room.sendAnnouncement(
-                "⚡ Golden goal in overtime! Match over!",
-                null,
-                0xFFD700,
-                "bold",
-                2
-            );
             setTimeout(() => {
                 window.gameRoom._room.stopGame();
                 handleMatchEnd();
@@ -152,13 +145,6 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
         }
 
         if (gameState.isOvertime && scores?.red !== scores?.blue) {
-            window.gameRoom._room.sendAnnouncement(
-                "⚡ Golden goal in overtime! Match over!",
-                null,
-                0xFFD700,
-                "bold",
-                2
-            );
             setTimeout(() => {
                 window.gameRoom._room.stopGame();
                 handleMatchEnd();

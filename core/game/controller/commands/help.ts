@@ -70,6 +70,6 @@ export function cmdHelp(byPlayer: PlayerObject, message?: string): void {
             }
         }
     } else {
-        window.gameRoom._room.sendAnnouncement(LangRes.command.help, byPlayer.id, 0x479947, "normal", 1);
+        window.gameRoom._room.sendAnnouncement(LangRes.command.help, byPlayer.id, 0xFFD700, "normal", 1);
     }
 }

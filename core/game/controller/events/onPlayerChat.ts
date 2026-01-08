@@ -6,7 +6,7 @@ import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { isIncludeBannedWords } from "../TextFilter";
 import { gameState, updateQueue, tryStartMatch } from './gameState.js';
 import { draftState, draft, pickPlayer, handleAfkChange } from "./basket3vs3";
-import { getTopPlayersFromDB } from "../Storage";
+import { getTopPlayersFromDB, getPlayerRankFromDB } from "../Storage";
 
 // =======================
 // Definicja rang i funkcja do prefixu
@@ -126,14 +126,6 @@ export async function onPlayerChatListener(
                 return false;
             }
 
-            window.gameRoom._room.sendAnnouncement(
-                "🏆 TOP 10 PLAYERS 🏆",
-                player.id,
-                0xFFD700,
-                "bold",
-                1
-            );
-
             const topLine = topPlayers.slice(0, 10).map((p, index) => {
                 const pos = index + 1;
                 const emoji =
@@ -162,6 +154,58 @@ export async function onPlayerChatListener(
             );
         }
 
+        return false;
+    }
+    // ========= RANK command =========
+    if (message === "!rank") {
+        try {
+            const playerAuth = window.gameRoom.playerList.get(player.id)?.auth;
+            if (!playerAuth) {
+                window.gameRoom._room.sendAnnouncement(
+                    "❌ Could not find your player data.",
+                    player.id,
+                    0xFF0000,
+                    "bold",
+                    1
+                );
+                return false;
+            }
+            const rankData = await getPlayerRankFromDB(playerAuth);
+            if (!rankData) {
+                window.gameRoom._room.sendAnnouncement(
+                    "❌ You are not in the ranking yet. Play some games first!",
+                    player.id,
+                    0xFF0000,
+                    "bold",
+                    1
+                );
+                return false;
+            }
+            // Calculate percentage (top X%)
+            const percentage = ((rankData.position / rankData.total) * 100).toFixed(1);
+            // Medal based on position
+            let medal = "🏆";
+            if (rankData.position === 1) medal = "👑";
+            else if (rankData.position === 2) medal = "🥈";
+            else if (rankData.position === 3) medal = "🥉";
+            else if (rankData.position <= 10) medal = "⭐";
+            else if (rankData.position <= 50) medal = "🔹";
+            window.gameRoom._room.sendAnnouncement(
+                `${medal} ${player.name}, your rank: #${rankData.position} / ${rankData.total} players (${rankData.rating} pts) | Top ${percentage}%`,
+                player.id,
+                0x00FFFF,
+                "bold",
+                1
+            );
+        } catch (err) {
+            window.gameRoom._room.sendAnnouncement(
+                "❌ Failed to load rank data.",
+                player.id,
+                0xFF0000,
+                "bold",
+                1
+            );
+        }
         return false;
     }
 

@@ -75,3 +75,27 @@ export async function getTopPlayersFromDB(): Promise<PlayerStorage[]> {
     );
     return players;
 }
+
+// Get player rank from ALL players in database
+export async function getPlayerRankFromDB(playerAuth: string): Promise<{position: number, total: number, rating: number} | null> {
+    // Use _readAllPlayersDB to get ALL players, not just top 10
+    const allPlayers: PlayerStorage[] = await window._readAllPlayersDB(
+        window.gameRoom.config._RUID
+    );
+    if (!allPlayers || allPlayers.length === 0) {
+        return null;
+    }
+    // Sort ALL players by rating descending
+    const sorted = allPlayers.sort((a, b) => b.rating - a.rating);
+    // Find player position in the FULL list
+    const position = sorted.findIndex(p => p.auth === playerAuth) + 1;
+    if (position === 0) {
+        return null; // Player not found in DB
+    }
+    const playerData = sorted[position - 1];
+    return {
+        position: position,
+        total: sorted.length,
+        rating: playerData.rating
+    };
+}

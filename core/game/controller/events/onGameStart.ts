@@ -94,14 +94,11 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
         placeholderStart.teamExpectationRed = expectations[1];
         placeholderStart.teamExpectationBlue = expectations[2];
 
-        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.startRecord, placeholderStart), null, 0x00FF00, "normal", 0);
-        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.expectedWinRate, placeholderStart), null, 0x00FF00, "normal", 0);
+        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.expectedWinRate, placeholderStart), null, 0xFFD700, "bold", 0);
 
         if (window.gameRoom.config.rules.autoOperating === true) { // if game rule is set as auto operating mode
             window.gameRoom._room.pauseGame(true); // pause (and will call onGamePause event)
         }
-    } else {
-        window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.stopRecord, placeholderStart), null, 0x00FF00, "normal", 0);
     }
     const isBasketball =
         window.gameRoom.config._RUID === "basketball";

@@ -115,6 +115,7 @@ declare global {
         //async updateSuperadminDB is not implemented.
         async _deleteSuperadminDB(ruid: string, key: string): Promise<void>
         async _readTopPlayersDB(ruid: string): Promise<PlayerStorage[]>
+        async _readAllPlayersDB(ruid: string): Promise<PlayerStorage[]>
         // ==============================
 
         // ==============================

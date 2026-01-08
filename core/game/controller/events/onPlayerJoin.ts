@@ -233,7 +233,7 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     }
 
     // send welcome message to new player. other players cannot read this message.
-    window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onJoin.welcome, placeholderJoin), player.id, 0x00FF00, "normal", 0);
+    window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onJoin.welcome, placeholderJoin), player.id, 0xFFD700, "bold", 0);
 
     // send notice
     if (window.gameRoom.notice !== '') {
@@ -244,7 +244,6 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     let activePlayersNumber: number = roomActivePlayersNumberCheck();
     if (window.gameRoom.config.rules.statsRecord === true && activePlayersNumber >= window.gameRoom.config.rules.requisite.minimumPlayers) {
         if (window.gameRoom.isStatRecord === false) {
-            window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onJoin.startRecord, placeholderJoin), null, 0x00FF00, "normal", 0);
             window.gameRoom.isStatRecord = true;
             if (window.gameRoom.config.rules.autoOperating === true && window.gameRoom.isGamingNow === true) {
                 // if auto emcee mode is enabled and the match has been playing as ready mode
@@ -253,7 +252,6 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
         }
     } else {
         if (window.gameRoom.isStatRecord === true) {
-            window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onJoin.stopRecord, placeholderJoin), null, 0x00FF00, "normal", 0);
             window.gameRoom.isStatRecord = false;
         }
     }
