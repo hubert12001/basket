@@ -4,6 +4,8 @@ import { PlayerObject } from "../../model/GameObject/PlayerObject";
 import { getUnixTimestamp } from "../Statistics";
 import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { setBanlistDataToDB } from "../Storage";
+import { draftState, draft, smartBalance, isDraftStillValid, resetDraftHard, ensureOnePlayerPerTeam, enforceDynamicMode, rollbackIfNoSpecs, delayedDraftCheck, canStartGame, spectators, clearPickTimer } from "./basket3vs3";
+
 
 export function onPlayerKickedListener(kickedPlayer: PlayerObject, reason: string, ban: boolean, byPlayer: PlayerObject): void {
     /* Event called when a player has been kicked from the room. This is always called after the onPlayerLeave event.
@@ -78,5 +80,62 @@ export function onPlayerKickedListener(kickedPlayer: PlayerObject, reason: strin
             setBanlistDataToDB({ conn: kickedPlayer.conn, reason: placeholderKick.reason, register: kickedTime, expire: -1 }); // register into ban list
         }
         window.gameRoom.logger.i('onPlayerKicked', `${kickedPlayer.name}#${kickedPlayer.id} has been kicked. (ban:${ban},reason:${placeholderKick.reason})`);
+    }
+
+    const isBasket3vs3 =
+        window.gameRoom.config._RUID === "basket3vs3";
+
+    if (isBasket3vs3) {
+
+        var pickerLeft = draft.active && kickedPlayer.id === draft.pickerId;
+
+        if (pickerLeft) {
+            resetDraftHard();
+        }
+
+        var reduced = enforceDynamicMode();
+
+        if (draftState.gameRunning && reduced) {
+            window.gameRoom._room.sendAnnouncement("🔄 Restartowanie gry dla nowego trybu...", null, 0xFFFF00, "bold", 1);
+            window.gameRoom._room.stopGame();
+            return;
+        }
+
+        setTimeout(() => {
+            if (draftState.afkKickInDraft) {
+                delayedDraftCheck();
+                return;
+            }
+
+            if (draft.active && !isDraftStillValid()) {
+                resetDraftHard();
+                rollbackIfNoSpecs();
+
+                setTimeout(() => {
+                    if (!draftState.gameRunning && canStartGame()) {
+                        window.gameRoom._room.startGame();
+                    }
+                }, 100);
+                return;
+            }
+
+            if (!draftState.hardResetLock) {
+                smartBalance();
+            }
+
+            delayedDraftCheck();
+            clearPickTimer();
+
+            setTimeout(() => {
+                if (!draftState.gameRunning && !draft.active && canStartGame()) {
+                    window.gameRoom._room.startGame();
+                }
+            }, 200);
+
+        }, 100);
+
+        setTimeout(() => {
+            ensureOnePlayerPerTeam();
+        }, 150);
     }
 }

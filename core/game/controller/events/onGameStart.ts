@@ -7,7 +7,7 @@ import { roomTeamPlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { decideTier, getAvatarByTier, Tier } from "../../model/Statistics/Tier";
 import { setBanlistDataToDB } from "../Storage";
 import { gameState, startMatchTimer } from './gameState.js';
-import { draftState } from "./basket3vs3";
+import { draftState, startAFKCheck } from "./basket3vs3";
 
 export function onGameStartListener(byPlayer: PlayerObject | null): void {
     /* Event called when a game starts.
@@ -45,14 +45,14 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
         msg += `(by ${byPlayer.name}#${byPlayer.id})`;
     }
 
-    if(window.gameRoom.config.settings.avatarOverridingByTier === true) {
+    if (window.gameRoom.config.settings.avatarOverridingByTier === true) {
         // if avatar overrding option is enabled
         allPlayersList.forEach((eachPlayer: PlayerObject) => {
             window.gameRoom._room.setPlayerAvatar(eachPlayer.id, getAvatarByTier( // set avatar
                 (window.gameRoom.playerList.get(eachPlayer.id)!.stats.totals < window.gameRoom.config.HElo.factor.placement_match_chances)
-                ? Tier.TierNew
-                : decideTier(window.gameRoom.playerList.get(eachPlayer.id)!.stats.rating)
-            )); 
+                    ? Tier.TierNew
+                    : decideTier(window.gameRoom.playerList.get(eachPlayer.id)!.stats.rating)
+            ));
         });
     }
 
@@ -70,9 +70,9 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
                 if (abusingID !== 0 && window.gameRoom.antiInsufficientStartAbusingCount.filter(eachID => eachID === abusingID).length > window.gameRoom.config.settings.insufficientStartAllowLimitation) {
                     //if limitation has over then fixed-term ban that admin player
                     setBanlistDataToDB({ conn: window.gameRoom.playerList.get(abusingID)!.conn, reason: LangRes.antitrolling.insufficientStartAbusing.banReason, register: abusingTimestamp, expire: abusingTimestamp + window.gameRoom.config.settings.insufficientStartAbusingBanMillisecs });
-                    window.gameRoom._room.kickPlayer(abusingID, LangRes.antitrolling.insufficientStartAbusing.banReason, false);     
+                    window.gameRoom._room.kickPlayer(abusingID, LangRes.antitrolling.insufficientStartAbusing.banReason, false);
                 }
-                
+
                 return; // abort this event.
             } else {
                 window.gameRoom.antiInsufficientStartAbusingCount = []; // clear and init
@@ -80,13 +80,13 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
         }
 
         allPlayersList
-                .filter((eachPlayer: PlayerObject) => eachPlayer.team !== TeamID.Spec)
-                .forEach((eachPlayer: PlayerObject) => { 
-                    window.gameRoom.playerList.get(eachPlayer.id)!.entrytime.matchEntryTime = 0; // init each player's entry match time
-                    if(window.gameRoom.playerList.get(eachPlayer.id)!.stats.totals < 10) {
-                        window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.factorK = window.gameRoom.config.HElo.factor.factor_k_placement; // set K Factor as a Placement match
-                    } // or default value is Normal match
-                });
+            .filter((eachPlayer: PlayerObject) => eachPlayer.team !== TeamID.Spec)
+            .forEach((eachPlayer: PlayerObject) => {
+                window.gameRoom.playerList.get(eachPlayer.id)!.entrytime.matchEntryTime = 0; // init each player's entry match time
+                if (window.gameRoom.playerList.get(eachPlayer.id)!.stats.totals < 10) {
+                    window.gameRoom.playerList.get(eachPlayer.id)!.matchRecord.factorK = window.gameRoom.config.HElo.factor.factor_k_placement; // set K Factor as a Placement match
+                } // or default value is Normal match
+            });
 
         // start game
         let expectations: number[] = getTeamWinningExpectation();
@@ -97,19 +97,20 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.startRecord, placeholderStart), null, 0x00FF00, "normal", 0);
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.expectedWinRate, placeholderStart), null, 0x00FF00, "normal", 0);
 
-        if(window.gameRoom.config.rules.autoOperating === true) { // if game rule is set as auto operating mode
+        if (window.gameRoom.config.rules.autoOperating === true) { // if game rule is set as auto operating mode
             window.gameRoom._room.pauseGame(true); // pause (and will call onGamePause event)
         }
     } else {
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onStart.stopRecord, placeholderStart), null, 0x00FF00, "normal", 0);
     }
     const isBasketball =
-    window.gameRoom.config._RUID === "basketball";
+        window.gameRoom.config._RUID === "basketball";
 
     const isBasket3vs3 =
-    window.gameRoom.config._RUID === "basket3vs3";
+        window.gameRoom.config._RUID === "basket3vs3";
+    const isStrongball = window.gameRoom.config._RUID === "strongball";
 
-    if (isBasketball) {
+    if (isBasketball || isStrongball) {
         startMatchTimer();
         gameState.ballSide = null; // "red" albo "blue"
         gameState.sideStartTime = null;
@@ -118,7 +119,22 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
     else if (isBasket3vs3) {
         draftState.gameRunning = true;
         draftState.justStarted = true;
+        draftState.gameInProgress = true;
         setTimeout(() => draftState.justStarted = false, 200);
+
+        // Zainicjuj pozycje startowe
+        const players = window.gameRoom._room.getPlayerList().filter(p => p.team !== 0);
+        players.forEach(player => {
+            const disc = window.gameRoom._room.getPlayerDiscProperties(player.id);
+            if (disc && draftState.playerData[player.id]) {
+                draftState.playerData[player.id].lastX = disc.x;
+                draftState.playerData[player.id].lastY = disc.y;
+                draftState.playerData[player.id].afkTime = 0;
+                draftState.playerData[player.id].warned = false;
+            }
+        });
+
+        startAFKCheck();
     }
 
     // replay record start

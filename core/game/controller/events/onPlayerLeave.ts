@@ -7,7 +7,7 @@ import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { recuritByOne, roomActivePlayersNumberCheck, roomTeamPlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { convertToPlayerStorage, getBanlistDataFromDB, setBanlistDataToDB, setPlayerDataToDB } from "../Storage";
 import { updateQueue, tryStartMatch, gameState } from './gameState.js';
-import { draftState, draft, smartBalance, isDraftStillValid, resetDraftHard, ensureOnePlayerPerTeam, enforceDynamicMode, rollbackIfNoSpecs, delayedDraftCheck, canStartGame, spectators, clearPickTimer } from "./basket3vs3";
+import { draftState, removePlayerData, draft, smartBalance, isDraftStillValid, resetDraftHard, ensureOnePlayerPerTeam, enforceDynamicMode, rollbackIfNoSpecs, delayedDraftCheck, canStartGame, spectators, clearPickTimer } from "./basket3vs3";
 
 export async function onPlayerLeaveListener(player: PlayerObject): Promise<void> {
     // Event called when a player leaves the room.
@@ -105,8 +105,8 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
 
     const isBasket3vs3 =
         window.gameRoom.config._RUID === "basket3vs3";
-
-    if (isBasketball) {
+    const isStrongball = window.gameRoom.config._RUID === "strongball";
+    if (isBasketball || isStrongball) {
         gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
         updateQueue();
 
@@ -128,7 +128,7 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
         tryStartMatch(); // spróbuj rozpocząć nowy mecz, jeśli ktoś czeka w kolejce
     }
     else if (isBasket3vs3) {
-
+        removePlayerData(player.id, draftState.playerData);
         var pickerLeft = draft.active && player.id === draft.pickerId;
 
         if (pickerLeft) {

@@ -10,7 +10,7 @@ import { recuritByOne, roomActivePlayersNumberCheck, roomTeamPlayersNumberCheck 
 import { decideTier, getAvatarByTier, Tier } from "../../model/Statistics/Tier";
 import { isExistNickname, isIncludeBannedWords } from "../TextFilter";
 import { updateQueue, tryStartMatch } from './gameState.js';
-import { count, draft, Team, delayedStart, delayedDraftCheck, showDraft } from "./basket3vs3";
+import { count, draft, Team, delayedStart, delayedDraftCheck, showDraft, initPlayerData, draftState } from "./basket3vs3";
 
 const allowedAdmins = [
     "z6D837qxvbBu0viJAjtSqCn2VJ69tjbxwOYja1du9iY", // <--- wstaw tutaj swoje ID
@@ -284,11 +284,14 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     const isBasket3vs3 =
     window.gameRoom.config._RUID === "basket3vs3";
 
-    if (isBasketball) {
+    const isStrongball = window.gameRoom.config._RUID === "strongball";
+
+    if (isBasketball || isStrongball) {
         updateQueue();
         tryStartMatch();
     }
     else if (isBasket3vs3) {
+        initPlayerData(player, draftState.playerData);
         
         if (count(Team.RED) === 0) {
             window.gameRoom._room.setPlayerTeam(player.id, Team.RED);

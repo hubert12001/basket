@@ -1,6 +1,3 @@
-import { getAfkPlayers } from "../commands/afk";
-import { roomActivePlayersNumberCheck } from "../../model/OperateHelper/Quorum";
-
 interface GameState {
     isOvertime: false | true | null,
     ballSide: "red" | "blue" | null;
@@ -20,68 +17,94 @@ const gameState: GameState = {
 };
 
 let overtimeTimer: ReturnType<typeof setTimeout> | null = null;
-let matchTimer: ReturnType<typeof setTimeout> | null = null;
 
 let matchInterval: ReturnType<typeof setInterval> | null = null;
 
-function startMatchTimer() {
+let matchStartGameTime = 0;
+function resetAllTimers() {
+    // Czyść interval meczu
     if (matchInterval) {
         clearInterval(matchInterval);
         matchInterval = null;
     }
-    gameState.matchStartTimestamp = Date.now();
+    // Czyść timer overtime
+    if (overtimeTimer) {
+        clearTimeout(overtimeTimer);
+        overtimeTimer = null;
+    }
+}
+
+function startMatchTimer() {
+    resetAllTimers();
+
+    const scores = window.gameRoom._room.getScores();
+    if (!scores) return;
+
+    matchStartGameTime = scores.time; // CZAS Z GRY
     gameState.isOvertime = false;
 
+    const isStrongball = window.gameRoom.config._RUID === "strongball";
+    const matchDuration = isStrongball ? 120 : 60; // sekundy
+
     matchInterval = setInterval(() => {
-        const elapsed = Date.now() - (gameState.matchStartTimestamp ?? 0);
+        const currentScores = window.gameRoom._room.getScores();
+        if (!currentScores) return;
 
-        // 60 sekund = 60000 ms
-        if (elapsed >= 60000) {
-            if (matchInterval) {
-                clearInterval(matchInterval);
-                matchInterval = null;
-            }
-            const scores = window.gameRoom._room.getScores();
-            if (!scores) return;
+        const elapsed = currentScores.time - matchStartGameTime;
 
-            if (scores.red === scores.blue) {
-                window.gameRoom._room.sendAnnouncement("⏰ Time's up! Starting 30s overtime.", null, 0xFFD700, "bold", 2);
-                startOvertimeTimer();
+        if (elapsed >= matchDuration) {
+            resetAllTimers();
+
+            if (currentScores.red === currentScores.blue) {
+                window.gameRoom._room.sendAnnouncement(
+                    "⏰ Time's up! Starting overtime.",
+                    null, 0xFFD700, "bold", 2
+                );
+                startOvertimeTimer(currentScores.time);
             } else {
-                window.gameRoom._room.sendAnnouncement("⏰ Time's up! The match has ended.", null, 0xFFD700, "bold", 2);
+                window.gameRoom._room.sendAnnouncement(
+                    "🏁 Time's up!",
+                    null, 0xFFD700, "bold", 2
+                );
                 setTimeout(() => {
                     window.gameRoom._room.stopGame();
                     handleMatchEnd();
                 }, 3000);
             }
         }
-    }, 1000);
+    }, 500); // może być częściej niż 1s
 }
 
-function startOvertimeTimer() {
+let overtimeStartGameTime = 0;
+
+function startOvertimeTimer(startTime: number) {
     gameState.isOvertime = true;
-    if (overtimeTimer) clearTimeout(overtimeTimer);
-    overtimeTimer = setTimeout(() => {
+    overtimeStartGameTime = startTime;
+
+    matchInterval = setInterval(() => {
         const scores = window.gameRoom._room.getScores();
         if (!scores) return;
 
-        if (scores.red === scores.blue) {
-            window.gameRoom._room.sendAnnouncement("🤝 Overtime ended in a draw! New players are joining.", null, 0xFFD700, "bold", 2);
-        } else {
-            window.gameRoom._room.sendAnnouncement("🏁 Overtime is over!", null, 0xFFD700, "bold", 2);
+        const elapsed = scores.time - overtimeStartGameTime;
+
+        if (elapsed >= 30) {
+            resetAllTimers();
+
+            window.gameRoom._room.sendAnnouncement(
+                scores.red === scores.blue
+                    ? "🤝 Overtime draw!"
+                    : "🏁 Overtime over!",
+                null, 0xFFD700, "bold", 2
+            );
+
+            setTimeout(() => {
+                window.gameRoom._room.stopGame();
+                handleMatchEnd();
+            }, 3000);
         }
-
-        setTimeout(() => {
-            window.gameRoom._room.stopGame();
-            handleMatchEnd();
-        }, 3000);
-    }, 30 * 1000);
+    }, 500);
 }
 
-function resetAllTimers() {
-    if (matchTimer) clearTimeout(matchTimer);
-    if (overtimeTimer) clearTimeout(overtimeTimer);
-}
 
 
 function resetOvertimeTimer() {

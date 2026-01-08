@@ -1,5 +1,6 @@
 import * as LangRes from "../../resource/strings";
 import { PlayerObject } from "../../model/GameObject/PlayerObject";
+import { draftState, stopAFKCheck } from "./basket3vs3";
 
 export function onGamePauseListener(byPlayer: PlayerObject | null): void {
     window.gameRoom.isGamingNow = false; // turn off
@@ -9,5 +10,11 @@ export function onGamePauseListener(byPlayer: PlayerObject | null): void {
         setTimeout(() => {
             window.gameRoom._room.pauseGame(false); // resume(unpause) (and will call onGameUnpause event)
         }, 5000); // 5secs
+    }
+
+    const isBasket3vs3 =
+        window.gameRoom.config._RUID === "basket3vs3";
+    if (isBasket3vs3) {
+        stopAFKCheck();
     }
 }

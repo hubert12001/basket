@@ -19,6 +19,7 @@ import * as mapGBSoHot from "./stadium/gbsohot.hbs"
 import * as mapRealSoccer from "./stadium/realsoccer.hbs"
 import * as mapBasketball from "./stadium/basketball.hbs"
 import * as mapBasket3vs3 from "./stadium/basketball3v3.hbs"
+import * as mapStrongball from "./stadium/strongball.hbs"
 
 /**
 * load stadium map (JSON stringified).
@@ -65,7 +66,8 @@ export function loadStadiumData(mapName: string): string {
             return mapBasketball.stadiumText;
         case 'basket3vs3':
             return mapBasket3vs3.stadiumText;
-
+        case 'strongball':
+            return mapStrongball.stadiumText;
         default:
             return mapGBTraining.stadiumText;
     }

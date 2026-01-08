@@ -50,17 +50,17 @@ export function onPlayerBallKickListener(player: PlayerObject): void {
 
         // Usuń stare kopnięcia (starsze niż 0.5s = 500ms)
         data.kicks = data.kicks.filter(function(t : number) {
-            return now - t < 500;
+            return now - t < 300;
         });
 
-        // Sprawdź czy 3+ kopnięć w 0.3s
-        if (data.kicks.length >= 3) {
+        // Sprawdź czy 5+ kopnięć w 0.5s
+        if (data.kicks.length >= 5) {
             data.kicks = [];
 
             if (!data.warned) {
                 // Pierwsze wykrycie - ostrzeżenie
                 data.warned = true;
-                window.gameRoom._room.sendAnnouncement("⚠️ " + player.name + " - WARNING! Macro detected. Next time = kick!", null, 0xFFAA00, "bold", 1);
+                window.gameRoom._room.sendAnnouncement("⚠️ " + player.name + " - WARNING! Macro detected. Next time = kick!", player.id, 0xFFAA00, "bold", 1);
             } else {
                 // Drugie wykrycie - kick
                 window.gameRoom._room.kickPlayer(player.id, "MACRO", false);

@@ -21,6 +21,11 @@ playerRouter.post('/', async (ctx: Context) => {
     await controller.addPlayer(ctx)
 });
 
+
+playerRouter.get('/top', async (ctx: Context) => {
+    await controller.getTopPlayers(ctx);
+});
+
 // /v1/player/:auth GET
 // get the player data
 playerRouter.get('/:auth', async (ctx: Context) => {
@@ -38,3 +43,5 @@ playerRouter.put('/:auth', async (ctx: Context) => {
 playerRouter.delete('/:auth', async (ctx: Context) => {
     await controller.deletePlayer(ctx)
 });
+
+

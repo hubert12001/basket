@@ -1,6 +1,7 @@
 import { TeamID } from "../../model/GameObject/TeamID";
 import { Player } from "../../model/GameObject/Player";
 import { gameState } from "./gameState";
+import { PlayerObject } from "../../model/GameObject/PlayerObject";
 
 const Team = { SPECTATORS: 0, RED: 1, BLUE: 2 } as const;
 
@@ -30,6 +31,9 @@ interface DraftState {
     hardResetLock: boolean;
     afkKickInDraft: boolean;
     antiMacro: Record<string, any>;
+    afkCheckInterval: ReturnType<typeof setInterval> | null;
+    gameInProgress: boolean;
+    playerData: Record<string, any>;
 }
 
 const draftState: DraftState = {
@@ -41,8 +45,111 @@ const draftState: DraftState = {
     justStarted: false,
     hardResetLock: false,
     afkKickInDraft: false,
-    antiMacro: {}
+    antiMacro: {},
+    afkCheckInterval: null,
+    gameInProgress: false,
+    playerData: {}
 };
+
+
+function initPlayerData(player : PlayerObject, playerDataObj: Record<string, any>) {
+    draftState.playerData[player.id] = {
+        name: player.name,
+        lastX: 0,
+        lastY: 0,
+        afkTime: 0,
+        warned: false
+    };
+}
+
+function removePlayerData(playerId : PlayerObject['id'], playerData: Record<string, any>) {
+    delete playerData[playerId];
+}
+
+// Sprawdź czy gracz się ruszył
+function hasPlayerMoved(player : PlayerObject, currentPos : { x: number; y: number }, playerData: Record<string, any>) {
+    if (!currentPos) return true; // Gracz nie jest na boisku
+    
+    const data = playerData[player.id];
+    if (!data) return true;
+    
+    const moved = (
+        Math.abs(currentPos.x - data.lastX) > 0.5 ||
+        Math.abs(currentPos.y - data.lastY) > 0.5
+    );
+    
+    // Aktualizuj ostatnią pozycję
+    data.lastX = currentPos.x;
+    data.lastY = currentPos.y;
+    
+    return moved;
+}
+
+const AFK_WARNING_TIME = 10; // sekundy do ostrzeżenia
+const AFK_KICK_TIME = 15;    // sekundy do kicka
+const CHECK_INTERVAL = 1000;
+
+// Sprawdź AFK wszystkich graczy
+function checkAFK() {
+    if (!draftState.gameInProgress) return;
+    
+    const players = window.gameRoom._room.getPlayerList().filter(p => p.id !== 0 && p.team !== 0);
+    
+    players.forEach(player => {
+        const disc = window.gameRoom._room.getPlayerDiscProperties(player.id);
+        const data = draftState.playerData[player.id];
+        
+        if (!data) return;
+        
+        if (disc && !hasPlayerMoved(player, disc, draftState.playerData)) {
+            // Gracz się nie ruszył
+            data.afkTime += CHECK_INTERVAL / 1000;
+            
+            // Ostrzeżenie po 10 sekundach
+            if (data.afkTime >= AFK_WARNING_TIME && !data.warned) {
+                data.warned = true;
+                window.gameRoom._room.sendAnnouncement(
+                    `⚠️ ${player.name} - You have ${AFK_KICK_TIME - AFK_WARNING_TIME} seconds before being kicked for AFK!`,
+                    player.id,
+                    0xFFFF00,
+                    "bold",
+                    2
+                );
+            }
+            
+            // Kick po 15 sekundach
+            if (data.afkTime >= AFK_KICK_TIME) {
+                window.gameRoom._room.kickPlayer(player.id, "AFK", false);
+            }
+            
+        } else {
+            // Gracz się ruszył - resetuj licznik
+            data.afkTime = 0;
+            data.warned = false;
+        }
+    });
+}
+
+// Rozpocznij sprawdzanie AFK
+function startAFKCheck() {
+    if (draftState.afkCheckInterval) clearInterval(draftState.afkCheckInterval);
+    
+    // Resetuj wszystkie dane AFK
+    Object.keys(draftState.playerData).forEach(id => {
+        draftState.playerData[id].afkTime = 0;
+        draftState.playerData[id].warned = false;
+    });
+    
+    draftState.afkCheckInterval = setInterval(checkAFK, CHECK_INTERVAL);
+}
+
+// Zatrzymaj sprawdzanie AFK
+function stopAFKCheck() {
+    if (draftState.afkCheckInterval) {
+        clearInterval(draftState.afkCheckInterval);
+        draftState.afkCheckInterval = null;
+    }
+}
 
 function initAntiMacro(playerId: Player['id']) {
     draftState.antiMacro[playerId] = {
@@ -105,10 +212,6 @@ function getLastPlayer(team: TeamID) {
 function assignCaptain(team: TeamID) {
     var specs = spectators();
     if (specs.length > 0) window.gameRoom._room.setPlayerTeam(specs[0].id, team);
-}
-
-function ensureCaptain(team: TeamID) {
-    if (count(team) === 0) assignCaptain(team);
 }
 
 function assignPicker(team: TeamID) {
@@ -352,14 +455,14 @@ function showDraft() {
         return;
     }
 
-    window.gameRoom._room.sendAnnouncement("📋 Wybierz zawodnika:", null, 0xaaaaaa, "bold", 1);
+    window.gameRoom._room.sendAnnouncement("📋 Choose a player:", null, 0xaaaaaa, "bold", 1);
 
     specs.forEach((p, i) => {
         window.gameRoom._room.sendAnnouncement((i + 1) + ". " + p.name, null, 0xaaaaaa, null, 1);
     });
 
     window.gameRoom._room.sendAnnouncement(
-        draft.turn === Team.RED ? "🔴 Wybiera Red" : "🔵 Wybiera Blue",
+        draft.turn === Team.RED ? "🔴 Red chooses" : "🔵 Blue chooses",
         null,
         draft.turn === Team.RED ? 0xff0000 : 0x0000ff,
         "bold", 1
@@ -426,7 +529,7 @@ function handleAfkChange(playerId: number, isNowAfk: boolean): void {
             // Gracz poszedł AFK podczas draftu
             if (!isDraftStillValid()) {
                 window.gameRoom._room.sendAnnouncement(
-                    `⚠️ Draft przerwany - niewystarczająca liczba graczy`,
+                    `⚠️ Draft stopped - not enough players!`,
                     null,
                     0xFFFF00,
                     "bold",
@@ -495,5 +598,10 @@ export {
     initAntiMacro,
     cleanupAntiMacro,
     handleAfkChange,
-    forceEvenTeams
+    forceEvenTeams,
+    initPlayerData,
+    removePlayerData,
+    checkAFK,
+    startAFKCheck,
+    stopAFKCheck
 };

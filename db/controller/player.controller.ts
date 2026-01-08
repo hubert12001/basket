@@ -114,4 +114,18 @@ export class PlayerController {
                 ctx.body = { error: error.message };
             });
     }
+
+    public async getTopPlayers(ctx: Context) {
+        const { ruid } = ctx.params;
+
+        try {
+            const players = await this._repository.findAllPlayersForTop(ruid);
+            const top10 = players.sort((a, b) => b.rating - a.rating).slice(0, 10);
+            ctx.status = 200;
+            ctx.body = top10;
+        } catch (err: any) {
+            ctx.status = 404;
+            ctx.body = { error: err.message };
+        }
+    }
 }

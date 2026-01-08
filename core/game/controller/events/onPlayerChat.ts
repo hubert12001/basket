@@ -6,6 +6,7 @@ import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { isIncludeBannedWords } from "../TextFilter";
 import { gameState, updateQueue, tryStartMatch } from './gameState.js';
 import { draftState, draft, pickPlayer, handleAfkChange } from "./basket3vs3";
+import { getTopPlayersFromDB } from "../Storage";
 
 // =======================
 // Definicja rang i funkcja do prefixu
@@ -34,7 +35,10 @@ function getPlayerPrefix(rating: number) {
 // =======================
 // Główna funkcja obsługi czatu
 // =======================
-export function onPlayerChatListener(player: PlayerObject, message: string): boolean {
+export async function onPlayerChatListener(
+    player: PlayerObject,
+    message: string
+): Promise<boolean> {
     window.gameRoom.logger.i('onPlayerChat', `[${player.name}#${player.id}] ${message}`);
     const isBasket3vs3 = window.gameRoom.config._RUID === "basket3vs3";
     const isBasketball = window.gameRoom.config._RUID === "basketball";
@@ -57,30 +61,30 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         const gameInProgress = window.gameRoom._room.getScores() !== null;
 
         if (gameInProgress && player.team !== 0) {
-            window.gameRoom._room.sendAnnouncement("❌ You can’t go AFK during the match!", player.id, 0xFF0000, "bold", 1);
+            window.gameRoom._room.sendAnnouncement("You can’t go AFK during the match!", player.id, 0xFF0000, "bold", 1);
             return false;
         }
 
         if (player.team !== 0) {
-            window.gameRoom._room.sendAnnouncement("⚠️ You can only set AFK while being in spectator.", player.id, 0xFFFF00, "bold", 1);
+            window.gameRoom._room.sendAnnouncement("You can only set AFK while being in spectator.", player.id, 0xFFFF00, "bold", 1);
             return false;
         }
 
         if (gameState.afkPlayers.includes(player.id)) {
             gameState.afkPlayers = gameState.afkPlayers.filter(id => id !== player.id);
-            window.gameRoom._room.sendAnnouncement(`✅ ${player.name} has returned from AFK and can play.`, null, 0x00FF00, "bold", 1);
-            if(isBasketball){
+            window.gameRoom._room.sendAnnouncement(`💤 ${player.name} has returned from AFK`, null, 0x00FF00, "bold", 1);
+            if (isBasketball) {
                 tryStartMatch();
             }
 
-            else if(isBasket3vs3){
+            else if (isBasket3vs3) {
                 handleAfkChange(player.id, false);
             }
 
         } else {
             gameState.afkPlayers.push(player.id);
-            window.gameRoom._room.sendAnnouncement(`💤 ${player.name} is now AFK.`, null, 0xFFFF00, "bold", 1);
-            if(isBasket3vs3){
+            window.gameRoom._room.sendAnnouncement(`💤 ${player.name} is now AFK`, null, 0xFFFF00, "bold", 1);
+            if (isBasket3vs3) {
                 handleAfkChange(player.id, true);
             }
         }
@@ -104,6 +108,60 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         const afkList = afkPlayerNames.join(", ");
 
         window.gameRoom._room.sendAnnouncement(`💤 Players AFK: ${afkList}`, player.id, 0xFFFF00, "bold", 1);
+        return false;
+    }
+
+    if (message === "!top") {
+        try {
+            const topPlayers = await getTopPlayersFromDB();
+
+            if (!topPlayers || topPlayers.length === 0) {
+                window.gameRoom._room.sendAnnouncement(
+                    "❌ No ranking data available.",
+                    player.id,
+                    0xFF0000,
+                    "bold",
+                    1
+                );
+                return false;
+            }
+
+            window.gameRoom._room.sendAnnouncement(
+                "🏆 TOP 10 PLAYERS 🏆",
+                player.id,
+                0xFFD700,
+                "bold",
+                1
+            );
+
+            const topLine = topPlayers.slice(0, 10).map((p, index) => {
+                const pos = index + 1;
+                const emoji =
+                    pos === 1 ? "🥇" :
+                        pos === 2 ? "🥈" :
+                            pos === 3 ? "🥉" : "🔹";
+
+                return `${emoji} ${p.name} (${p.rating})`;
+            }).join(" | "); // separacja pionową kreską
+
+            window.gameRoom._room.sendAnnouncement(
+                topLine,
+                player.id,
+                0x00FFFF, // np. cyan dla całej listy
+                "bold",
+                1
+            );
+
+        } catch (err) {
+            window.gameRoom._room.sendAnnouncement(
+                "❌ Failed to load TOP players.",
+                player.id,
+                0xFF0000,
+                "bold",
+                1
+            );
+        }
+
         return false;
     }
 
@@ -150,8 +208,8 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.bannedWords, placeholderChat), player.id, 0xFF0000, "bold", 2);
         return false;
     }
-
-    if (isBasketball) {
+    const isStrongball = window.gameRoom.config._RUID === "strongball";
+    if (isBasketball || isStrongball) {
         // pobieramy pełny obiekt z listy graczy
         const playerData = window.gameRoom.playerList.get(player.id);
 
@@ -179,14 +237,14 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         } else if (playerData.auth === "qO4d1F7Tujq3kzUeXSXO52NrBlohuINfP78VCqXFJ1A") {
             medalPrefix = "[🥉]";
             medalColor = 0xCD7F32;
-        } else if(playerData.auth=== "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") { // Mamba
+        } else if (playerData.auth === "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") { // Mamba
             medalColor = 0xFF00EE;
         }
 
         const prefixedMessage = `${medalPrefix}${displayPrefix} ${playerData.name}: ${message}`;
         window.gameRoom._room.sendAnnouncement(prefixedMessage, null, medalColor, "normal", 1);
         return false;
-    } 
+    }
     else if (isBasket3vs3) {
         const playerData = window.gameRoom.playerList.get(player.id);
 
@@ -205,10 +263,10 @@ export function onPlayerChatListener(player: PlayerObject, message: string): boo
         let medalColor = 0xFFFFFF;
         const prefixedMessage = `${medalPrefix}${displayPrefix} ${playerData.name}: ${message}`;
         window.gameRoom._room.sendAnnouncement(prefixedMessage, null, medalColor, "normal", 1);
-        
+
         if (draftState.postGameLock) return false;
         if (!draft.active) return false;
- 
+
         if (player.id !== draft.pickerId) return false;
 
         var n = parseInt(message, 10);

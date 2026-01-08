@@ -6,6 +6,7 @@ import { convertTeamID2Name, TeamID } from "../../model/GameObject/TeamID";
 import { ScoresObject } from "../../model/GameObject/ScoresObject";
 import { setBanlistDataToDB } from "../Storage";
 import { resetOvertimeTimer, handleMatchEnd, gameState, resetAllTimers } from './gameState.js';
+import { draftState } from "./basket3vs3";
 
 export async function onTeamGoalListener(team: TeamID): Promise<void> {
     // Event called when a team scores a goal.
@@ -106,9 +107,14 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
     }
     gameState.ballSide = null;
     gameState.sideStartTime = null;
-    
+
     const isBasketball =
         window.gameRoom.config._RUID === "basketball";
+
+    const isStrongball = window.gameRoom.config._RUID === "strongball";
+
+    const isBasket3vs3 =
+        window.gameRoom.config._RUID === "basket3vs3";
 
     if (isBasketball) {
 
@@ -134,5 +140,37 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
             }, 3000);
             return;
         }
+    }
+
+    else if (isStrongball) {
+        if ((scores?.red ?? 0) >= 3 || (scores?.blue ?? 0) >= 3) {
+            resetAllTimers();
+            setTimeout(() => {
+                window.gameRoom._room.stopGame();
+                handleMatchEnd();
+            }, 3000);
+        }
+
+        if (gameState.isOvertime && scores?.red !== scores?.blue) {
+            window.gameRoom._room.sendAnnouncement(
+                "⚡ Golden goal in overtime! Match over!",
+                null,
+                0xFFD700,
+                "bold",
+                2
+            );
+            setTimeout(() => {
+                window.gameRoom._room.stopGame();
+                handleMatchEnd();
+            }, 3000);
+            return;
+        }
+    }
+    else if (isBasket3vs3) {
+        // Resetuj liczniki AFK po golu (gracze wracają na pozycje)
+        Object.keys(draftState.playerData).forEach(id => {
+            draftState.playerData[id].afkTime = 0;
+            draftState.playerData[id].warned = false;
+        });
     }
 }

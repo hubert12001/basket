@@ -7,7 +7,7 @@ import { shuffleArray } from "../RoomTools";
 import { fetchActiveSpecPlayers, roomActivePlayersNumberCheck } from "../../model/OperateHelper/Quorum";
 import { HElo, MatchResult, StatsRecord } from "../../model/Statistics/HElo";
 import { convertToPlayerStorage, setPlayerDataToDB } from "../Storage";
-import { draftState, Team } from "./basket3vs3";
+import { draftState, stopAFKCheck, Team } from "./basket3vs3";
 
 function updatePlayerRatingsCache() {
     for (const [id, player] of window.gameRoom.playerList) {
@@ -238,12 +238,14 @@ export async function onTeamVictoryListener(scores: ScoresObject): Promise<void>
     updatePlayerRatingsCache();
 
     const isBasket3vs3 =
-    window.gameRoom.config._RUID === "basket3vs3";
+        window.gameRoom.config._RUID === "basket3vs3";
 
     window.gameRoom.logger.i('onTeamVictory', `The game has ended. Scores ${scores.red}:${scores.blue}.`);
     window.gameRoom._room.sendAnnouncement(winningMessage, null, 0x00FF00, "bold", 1);
 
     if (isBasket3vs3) {
         draftState.lastWinner = scores.red > scores.blue ? Team.RED : Team.BLUE;
+        draftState.gameInProgress = false;
+        stopAFKCheck();
     }
 }

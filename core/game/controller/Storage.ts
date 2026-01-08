@@ -68,3 +68,10 @@ export async function getBanlistDataFromDB(playerConn: string): Promise<BanList 
 export async function removeBanlistDataFromDB(playerConn: string): Promise<void> {
     await window._deleteBanlistDB(window.gameRoom.config._RUID, playerConn);
 }
+
+export async function getTopPlayersFromDB(): Promise<PlayerStorage[]> {
+    const players: PlayerStorage[] = await window._readTopPlayersDB(
+        window.gameRoom.config._RUID
+    );
+    return players;
+}

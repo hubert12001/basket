@@ -4,4 +4,5 @@ export interface IRepository<T> {
     addSingle(ruid: string, targetModel: any): Promise<T>;
     updateSingle(ruid: string, target: string, targetModel: any): Promise<T>;
     deleteSingle(ruid: string, target: string): Promise<void>;
+    findAllPlayersForTop(ruid: string): Promise<T[]>;
 }

@@ -4,11 +4,11 @@ import { Player } from '../entity/player.entity';
 import { PlayerModel } from '../model/PlayerModel';
 
 export class PlayerRepository implements IRepository<Player> {
-    public async findAll(ruid: string, pagination?: {start: number, count: number}): Promise<Player[]> {
+    public async findAll(ruid: string, pagination?: { start: number, count: number }): Promise<Player[]> {
         const repository: Repository<Player> = getRepository(Player);
         let players: Player[] = [];
-        if(pagination) {
-            players = await repository.find({where: {ruid: ruid}, skip: pagination.start, take: pagination.count});
+        if (pagination) {
+            players = await repository.find({ where: { ruid: ruid }, skip: pagination.start, take: pagination.count });
         } else {
             players = await repository.find({ ruid: ruid });
         }
@@ -92,5 +92,12 @@ export class PlayerRepository implements IRepository<Player> {
         } else {
             await repository.remove(player);
         }
+    }
+
+    public async findAllPlayersForTop(ruid: string): Promise<Player[]> {
+        const repository: Repository<Player> = getRepository(Player);
+        const players: Player[] = await repository.find({ where: { ruid } }); // filtr po room
+        if (players.length === 0) throw new Error('No players found.');
+        return players;
     }
 }

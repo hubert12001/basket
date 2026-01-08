@@ -213,3 +213,23 @@ export async function deletePlayerDB(ruid: string, playerAuth: string): Promise<
         }
     }
 }
+
+export async function readTopPlayersDB(ruid: string): Promise<PlayerStorage[]> {
+    try {
+        // OLD (wrong path):
+        // const result = await axios.get(`${dbConnAddr}room/${ruid}/topplayers`);
+        
+        // NEW (correct path - goes through player router):
+        const result = await axios.get(`${dbConnAddr}room/${ruid}/player/top`);
+        
+        if (result.status === 200 && result.data) {
+            winstonLogger.info(`200 Succeed on readTopPlayersDB for room ${ruid}`);
+            return result.data as PlayerStorage[];
+        } else {
+            return [];
+        }
+    } catch (error) {
+        winstonLogger.error(`Failed on readTopPlayersDB for room ${ruid}: ${error}`);
+        return [];
+    }
+}
