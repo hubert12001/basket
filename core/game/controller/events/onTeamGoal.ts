@@ -16,7 +16,13 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
     if (!gameState.isOvertime && gameState.matchStartTimestamp) {
         gameState.matchStartTimestamp += 2500;
     }
+    const isBasketball =
+        window.gameRoom.config._RUID === "basketball";
 
+    const isStrongball = window.gameRoom.config._RUID === "strongball";
+
+    const isBasket3vs3 =
+        window.gameRoom.config._RUID === "basket3vs3";
     var placeholderGoal = {
         teamID: team,
         teamName: '',
@@ -65,6 +71,12 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
             window.gameRoom.playerList.get(touchPlayer)!.matchRecord.goals++; // record goal in match record
             //setPlayerData(window.playerList.get(touchPlayer)!);
             var goalMsg: string = Tst.maketext(LangRes.onGoal.goal, placeholderGoal);
+            if (isBasketball) {
+                goalMsg = Tst.maketext(LangRes.onGoal.goal, placeholderGoal);
+            }
+            else if (isStrongball) {
+                goalMsg = Tst.maketext(LangRes.onGoal.goalStrong, placeholderGoal);
+            }
             if (assistPlayer !== undefined && touchPlayer != assistPlayer && window.gameRoom.playerList.get(assistPlayer)!.team === team) {
                 // records assist when the player who assists is not same as the player goaled, and is not other team.
                 placeholderGoal.assistID = window.gameRoom.playerList.get(assistPlayer)!.id;
@@ -80,8 +92,15 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
             placeholderGoal.ogName = window.gameRoom.playerList.get(touchPlayer)!.name;
             window.gameRoom.playerList.get(touchPlayer)!.matchRecord.ogs++; // record OG in match record
             //setPlayerData(window.playerList.get(touchPlayer)!);
-            window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onGoal.og, placeholderGoal), null, 0x00FF00, "normal", 0);
-            window.gameRoom.logger.i('onTeamGoal', `${window.gameRoom.playerList.get(touchPlayer)!.name}#${touchPlayer} made an OG.`);
+            if (isBasketball) {
+                window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onGoal.ogStrong, placeholderGoal), null, 0x00FF00, "normal", 0);
+                window.gameRoom.logger.i('onTeamGoal', `${window.gameRoom.playerList.get(touchPlayer)!.name}#${touchPlayer} made an OG.`);
+            }
+            else if (isStrongball) {
+                window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onGoal.ogStrong, placeholderGoal), null, 0x00FF00, "normal", 0);
+                window.gameRoom.logger.i('onTeamGoal', `${window.gameRoom.playerList.get(touchPlayer)!.name}#${touchPlayer} made an OG.`);
+            }
+
 
             if (window.gameRoom.config.settings.antiOgFlood === true) { // if anti-OG flood option is enabled
                 window.gameRoom.antiTrollingOgFloodCount.push(touchPlayer); // record it
@@ -107,14 +126,6 @@ export async function onTeamGoalListener(team: TeamID): Promise<void> {
     }
     gameState.ballSide = null;
     gameState.sideStartTime = null;
-
-    const isBasketball =
-        window.gameRoom.config._RUID === "basketball";
-
-    const isStrongball = window.gameRoom.config._RUID === "strongball";
-
-    const isBasket3vs3 =
-        window.gameRoom.config._RUID === "basket3vs3";
 
     if (isBasketball) {
 

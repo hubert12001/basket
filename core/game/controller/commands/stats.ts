@@ -49,7 +49,7 @@ export function cmdStats(byPlayer: PlayerObject, message?: string): void {
                 let resultMsg: string = (isOnMatchNow(targetStatsID))
                     ? Tst.maketext(LangRes.command.stats.statsMsg + '\n' + LangRes.command.stats.matchAnalysis, placeholder)
                     : Tst.maketext(LangRes.command.stats.statsMsg, placeholder)
-                window.gameRoom._room.sendAnnouncement(resultMsg, byPlayer.id, 0x479947, "normal", 1);
+                window.gameRoom._room.sendAnnouncement(resultMsg, byPlayer.id, 0xFFD700, "bold", 1);
             } else {
                 window.gameRoom._room.sendAnnouncement(LangRes.command.stats._ErrorNoPlayer, byPlayer.id, 0xFF7777, "normal", 2);
             }
@@ -85,10 +85,22 @@ export function cmdStats(byPlayer: PlayerObject, message?: string): void {
             , targetStatsNowOgs: isOnMatchNow(byPlayer.id) ? window.gameRoom.playerList.get(byPlayer.id)!.matchRecord.ogs : 0
             , targetStatsNowPassSuccess: isOnMatchNow(byPlayer.id) ? StatCalc.calcPassSuccessRate(window.gameRoom.playerList.get(byPlayer.id)!.matchRecord.balltouch, window.gameRoom.playerList.get(byPlayer.id)!.matchRecord.passed) : 0
         }
-        let resultMsg: string = (isOnMatchNow(byPlayer.id))
-            ? Tst.maketext(LangRes.command.stats.statsMsg + '\n' + LangRes.command.stats.matchAnalysis, placeholder)
-            : Tst.maketext(LangRes.command.stats.statsMsg, placeholder)
+        const isStrongball = window.gameRoom.config._RUID === "strongball";
+        const isBasketball = window.gameRoom.config._RUID === "basketball";
+        if (isBasketball) {
+            let resultMsg: string = (isOnMatchNow(byPlayer.id))
+                ? Tst.maketext(LangRes.command.stats.statsMsg + '\n' + LangRes.command.stats.matchAnalysis, placeholder)
+                : Tst.maketext(LangRes.command.stats.statsMsg, placeholder)
 
-        window.gameRoom._room.sendAnnouncement(resultMsg, byPlayer.id, 0xFFD700, "bold", 1);
+            window.gameRoom._room.sendAnnouncement(resultMsg, byPlayer.id, 0xFFD700, "bold", 1);
+        }
+        else if (isStrongball) {
+            let resultMsg: string = (isOnMatchNow(byPlayer.id))
+                ? Tst.maketext(LangRes.command.stats.statsMsgStrong + '\n' + LangRes.command.stats.matchAnalysis, placeholder)
+                : Tst.maketext(LangRes.command.stats.statsMsgStrong, placeholder)
+
+            window.gameRoom._room.sendAnnouncement(resultMsg, byPlayer.id, 0xFFD700, "bold", 1);
+        }
+
     }
 }

@@ -54,7 +54,7 @@ export const command = {
     _ErrorWrongCommand : '❌ You did wrong command. 📑 !help or !help COMMAND for detail.'
     ,_ErrorNoPermission: '❌ You are not admin. You can\'t use this command.'
     ,_ErrorDisabled: '❌ This command is disabled. You can\'t use this command.'
-    ,help: '📄 !about, notice, top, stats, statsreset, tier, afk, afks, vote, poss, streak, scout, list\n📑 !help COMMAND for detail. (eg. !help stats)\n📑 !help admin shows you commands list for administrator.'
+    ,help: '📄 !about, notice, top, rank, stats, statsreset, tier, afk, afks, vote, poss, streak, scout, list\n📑 !help COMMAND for detail. (eg. !help stats)\n📑 !help admin shows you commands list for administrator.'
     ,helpadmin: '📄 !freeze, mute\n📑 !help COMMAND for detail.'
     ,helpman: { // detailed description for a command
         _ErrorWrongMan : '❌ Failed to read manual about that command.'
@@ -77,6 +77,7 @@ export const command = {
     ,stats: {
         _ErrorNoPlayer: '❌ Wrong player ID. You can only target numeric ID.(eg: !stats #12)\n📑 You can check IDs by command !list red,blue,spec'
         ,statsMsg: '📊 {targetName} ({targetStatsRatingAvatar}{targetStatsRating}), ⚔️ Games: {targetStatsTotal}, 🏆 WR: {targetStatsWinRate}%, Disconnected {targetStatsDisconns} games\n🏀 Goals: {targetStatsGoals}, ⛔ OG: {targetStatsOgs}\n📈 Per Game: 🏀 {targetStatsGoalsPerGame}, ⛔ {targetStatsOgsPerGame}'
+        ,statsMsgStrong: '📊 {targetName} ({targetStatsRatingAvatar}{targetStatsRating}), ⚔️ Games: {targetStatsTotal}, 🏆 WR: {targetStatsWinRate}%, Disconnected {targetStatsDisconns} games\n⚽ Goals: {targetStatsGoals}, ⛔ OG: {targetStatsOgs}\n📈 Per Game: ⚽ {targetStatsGoalsPerGame}, ⛔ {targetStatsOgsPerGame}'
         ,matchAnalysis: '📊 In this match, {targetStatsNowGoals}goals {targetStatsNowAssists}assists {targetStatsNowOgs}ogs. (Pass Success Rate {targetStatsNowPassSuccess}%)'
     }
     ,statsreset: '📊 Reset for statistical information completed. You can\'t cancel it.'
@@ -233,6 +234,9 @@ export const onGoal = {
     goal: '🏀 {scorerName}#{scorerID} scores a point!!'
     ,goalWithAssist: '🏀 {scorerName}#{scorerID} made a goal! (assisted by {assistName}#{assistID})'
     ,og: '🏀 {ogName}#{ogID} made an OG.'
+    ,goalStrong: '⚽ {scorerName}#{scorerID} scores a point!!'
+    ,goalWithAssistStrong: '⚽ {scorerName}#{scorerID} made a goal! (assisted by {assistName}#{assistID})'
+    ,ogStrong: '⚽ {ogName}#{ogID} made an OG.'
 }
 
 export const onAdminChange = {

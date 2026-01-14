@@ -33,6 +33,59 @@ function getPlayerPrefix(rating: number) {
 }
 
 // =======================
+// CACHE dla pozycji w rankingu (żeby nie pobierać z bazy przy każdej wiadomości)
+// =======================
+interface RankCache {
+    position: number;
+    total: number;
+    rating: number;
+    timestamp: number;
+}
+
+const playerRankCache: Map<string, RankCache> = new Map();
+const CACHE_DURATION = 60000; // 60 sekund
+
+async function getCachedPlayerRank(playerAuth: string): Promise<RankCache | null> {
+    const cached = playerRankCache.get(playerAuth);
+    const now = Date.now();
+
+    if (cached && now - cached.timestamp < CACHE_DURATION) {
+        return cached;
+    }
+
+    const rankData = await getPlayerRankFromDB(playerAuth);
+    if (!rankData) return null;
+
+    // ⛔ NIE cache’uj spoza TOP100
+    if (rankData.position > 100) {
+        playerRankCache.delete(playerAuth);
+        return null;
+    }
+
+    const entry: RankCache = { ...rankData, timestamp: now };
+    playerRankCache.set(playerAuth, entry);
+    return entry;
+}
+// Funkcja do odświeżenia cache dla wszystkich graczy online
+export async function refreshAllPlayersRankCache(): Promise<void> {
+    const players = Array.from(window.gameRoom.playerList.values());
+
+    for (const p of players) {
+        if (!p.auth) continue;
+
+        const rank = await getPlayerRankFromDB(p.auth);
+        if (rank && rank.position <= 100) {
+            playerRankCache.set(p.auth, {
+                ...rank,
+                timestamp: Date.now()
+            });
+        } else {
+            playerRankCache.delete(p.auth);
+        }
+    }
+}
+
+// =======================
 // Główna funkcja obsługi czatu
 // =======================
 export async function onPlayerChatListener(
@@ -254,38 +307,56 @@ export async function onPlayerChatListener(
     }
     const isStrongball = window.gameRoom.config._RUID === "strongball";
     if (isBasketball || isStrongball) {
-        // pobieramy pełny obiekt z listy graczy
+
         const playerData = window.gameRoom.playerList.get(player.id);
+        if (!playerData) return true;
 
-        if (!playerData) {
-            console.log("DEBUG: player not found in playerList");
-            return true; // lub false, jeśli chcesz zablokować wysłanie
+        const rating = playerData.stats?.rating ?? 0;
+        const auth = playerData.auth;
+
+        // ===== RANK (TOP100 ONLY) =====
+        let rankPart = "";
+        if (auth) {
+            const cachedRank = await getCachedPlayerRank(auth);
+            if (cachedRank && cachedRank.position <= 100) {
+                rankPart = `[#${cachedRank.position}]`;
+            }
         }
 
-        const rating = playerData.stats.rating ?? 0;
+        // ===== TIER =====
+        const tierPart = `[${getPlayerPrefix(rating)}]`;
 
-        let prefix = getPlayerPrefix(rating);
-        let displayPrefix = `[${prefix}]`;
-        if (playerData.admin) displayPrefix = `[👑 Admin][${prefix}]`;
+        // ===== ADMIN =====
+        let basePrefix = rankPart
+            ? `${rankPart}${tierPart}`
+            : tierPart;
 
-        // ===== Top 3 gracze medal + kolor =====
+        // ===== MEDALE / KOLORY (BEZ ZMIAN LOGIKI) =====
         let medalPrefix = "";
-        let medalColor = 0xFFFFFF; // domyślny biały
-
-        if (playerData.auth === "m9kiuCZTTNCcWQrAZh6e4a6fYsob--gTdhBjh397MH4" || playerData.auth === "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8") {
-            medalPrefix = "[🥇]";
-            medalColor = 0xFFD700;
-        } else if (playerData.auth === "MvfahQ_9EfqRwmfIOANPYpbY1A_gsK5xOc9v9yDDYkU") {
-            medalPrefix = "[🥈]";
-            medalColor = 0xFF8300;
-        } else if (playerData.auth === "qO4d1F7Tujq3kzUeXSXO52NrBlohuINfP78VCqXFJ1A") {
-            medalPrefix = "[🥉]";
-            medalColor = 0xCD7F32;
-        } else if (playerData.auth === "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") { // Mamba
-            medalColor = 0xFF00EE;
+        let medalColor = 0xFFFFFF;
+        if (isBasketball) {
+            if (
+                auth === "m9kiuCZTTNCcWQrAZh6e4a6fYsob--gTdhBjh397MH4" ||
+                auth === "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8"
+            ) {
+                medalPrefix = "[🥇]";
+                medalColor = 0xFFD700;
+            }
+            else if (auth === "MvfahQ_9EfqRwmfIOANPYpbY1A_gsK5xOc9v9yDDYkU") {
+                medalPrefix = "[🥈]";
+                medalColor = 0xFF8300;
+            }
+            else if (auth === "qO4d1F7Tujq3kzUeXSXO52NrBlohuINfP78VCqXFJ1A") {
+                medalPrefix = "[🥉]";
+                medalColor = 0xCD7F32;
+            }
+            else if (auth === "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") {
+                medalColor = 0xFF00EE;
+            }
         }
 
-        const prefixedMessage = `${medalPrefix}${displayPrefix} ${playerData.name}: ${message}`;
+
+        const prefixedMessage = `${medalPrefix}${basePrefix} ${playerData.name}: ${message}`;
         window.gameRoom._room.sendAnnouncement(prefixedMessage, null, medalColor, "normal", 1);
         return false;
     }
