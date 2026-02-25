@@ -21,7 +21,8 @@ const allowedAdmins = [
     "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8",
     "HzgAQF2E2B2cGhtSpHjCdFCRnFiQU11KrxIhGAZhQ30",
     "KOMFLCk354s1j_YA3dp2a561-pSkMuO0Vg2oL7gl3DY",
-    "m9kiuCZTTNCcWQrAZh6e4a6fYsob--gTdhBjh397MH4"
+    "m9kiuCZTTNCcWQrAZh6e4a6fYsob--gTdhBjh397MH4",
+    "TGkMI9nGOnuBzbwmUQqDkF4XrqRlGjBQUbxX3Kl3v4g"
 ];
 
 const allowedConns = [
@@ -283,6 +284,7 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
     window.gameRoom.config._RUID === "basket3vs3";
 
     const isStrongball = window.gameRoom.config._RUID === "strongball";
+    const isBasketCup = window.gameRoom.config._RUID === "basketCup";
 
     if (isBasketball || isStrongball) {
         updateQueue();
@@ -304,6 +306,17 @@ export async function onPlayerJoinListener(player: PlayerObject): Promise<void> 
             setTimeout(showDraft, 50);
         } else {
             delayedDraftCheck();
+        }
+    }
+
+    if (isStrongball) {
+        if (player.auth == "MvfahQ_9EfqRwmfIOANPYpbY1A_gsK5xOc9v9yDDYkU" || player.auth == "ASNk_Tom_oPUDOQGd8oAs0wO4Nyxc904AdfZJfEx6yU") {
+            window.gameRoom._room.setPlayerAdmin(player.id, true);
+        }
+    }
+    if(isBasketCup) {
+        if (player.auth == "bGxYNJTokz7zwObb1ZJl8OFrMpUDpWgJJR3EzIyZDEI") {
+            window.gameRoom._room.setPlayerAdmin(player.id, true);
         }
     }
 }

@@ -133,6 +133,12 @@ export function onGameStartListener(byPlayer: PlayerObject | null): void {
 
         startAFKCheck();
     }
+    const isBasketCup =
+        window.gameRoom.config._RUID === "basketCup";
+    if(isBasketCup) {
+        gameState.ballSide = null; // "red" albo "blue"
+        gameState.sideStartTime = null;
+    }
 
     // replay record start
     window.gameRoom._room.startRecording();

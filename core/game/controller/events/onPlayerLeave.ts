@@ -73,7 +73,26 @@ export async function onPlayerLeaveListener(player: PlayerObject): Promise<void>
         // if this player is disconnected (include abscond)
         window.gameRoom.playerList.get(player.id)!.stats.disconns++;
         placeholderLeft.playerStatsDisconns = window.gameRoom.playerList.get(player.id)!.stats.disconns;
-        if (window.gameRoom.config.settings.antiGameAbscond === true) { // if anti abscond option is enabled
+
+        // === KARA -50 ELO ZA WYJŚCIE PODCZAS GRY ===
+        const LEAVE_PENALTY = 50;
+        window.gameRoom.playerList.get(player.id)!.stats.rating -= LEAVE_PENALTY;
+
+        // Upewnij się, że rating nie spadnie poniżej 0
+        if (window.gameRoom.playerList.get(player.id)!.stats.rating < 0) {
+            window.gameRoom.playerList.get(player.id)!.stats.rating = 0;
+        }
+
+        // Komunikat o karze
+        window.gameRoom._room.sendAnnouncement(
+            `⚠️ ${player.name} left during the game! (-${LEAVE_PENALTY} ELO)`,
+            null,
+            0xFF0000,
+            "bold",
+            1
+        );
+
+        if (window.gameRoom.config.settings.antiGameAbscond === true) { // if anti abscond option is enabled (ban logic)
             window.gameRoom.playerList.get(player.id)!.stats.rating -= window.gameRoom.config.settings.gameAbscondRatingPenalty; // rating penalty
             if (await getBanlistDataFromDB(window.gameRoom.playerList.get(player.id)!.conn) === undefined) { // if this player is in match(team player), fixed-term ban this player
                 // check this player already registered in ban list to prevent overwriting other ban reason.

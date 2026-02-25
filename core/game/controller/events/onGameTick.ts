@@ -2,7 +2,8 @@ import {gameState } from './gameState.js';
 
 export function onGameTickListener(): void {
     const isBasketball = window.gameRoom.config._RUID === "basketball";
-    if (isBasketball) {
+    const isBasketCup = window.gameRoom.config._RUID === "basketCup";
+    if (isBasketball || isBasketCup) {
         const ball = window.gameRoom._room.getBallPosition();
 
         if (!ball) return;

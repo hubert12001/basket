@@ -163,7 +163,16 @@ export async function onPlayerChatListener(
         window.gameRoom._room.sendAnnouncement(`💤 Players AFK: ${afkList}`, player.id, 0xFFFF00, "bold", 1);
         return false;
     }
-
+    if (message == "!dc") {
+        window.gameRoom._room.sendAnnouncement(
+            "📢 AceCartel 👑 https://discord.gg/uYnwMD7QdF",
+            player.id,
+            0xFFFF00,
+            "bold",
+            1
+        );
+        return false;
+    }
     if (message === "!top") {
         try {
             const topPlayers = await getTopPlayersFromDB();
@@ -305,6 +314,8 @@ export async function onPlayerChatListener(
         window.gameRoom._room.sendAnnouncement(Tst.maketext(LangRes.onChat.bannedWords, placeholderChat), player.id, 0xFF0000, "bold", 2);
         return false;
     }
+    const isBasketCup =
+        window.gameRoom.config._RUID === "basketCup";
     const isStrongball = window.gameRoom.config._RUID === "strongball";
     if (isBasketball || isStrongball) {
 
@@ -336,22 +347,21 @@ export async function onPlayerChatListener(
         let medalColor = 0xFFFFFF;
         if (isBasketball) {
             if (
-                auth === "m9kiuCZTTNCcWQrAZh6e4a6fYsob--gTdhBjh397MH4" ||
-                auth === "x_tfum7KEeIj3aqZVS5vz_VkV5oXEddUKqhQLOu40E8"
+                auth === "bGxYNJTokz7zwObb1ZJl8OFrMpUDpWgJJR3EzIyZDEI"
             ) {
                 medalPrefix = "[🥇]";
                 medalColor = 0xFFD700;
             }
-            else if (auth === "MvfahQ_9EfqRwmfIOANPYpbY1A_gsK5xOc9v9yDDYkU") {
+            else if (auth === "4ILBUpujI_N-KpXoz7ThvdBKL9qyXE1cbVXEoDYgLN4") {
                 medalPrefix = "[🥈]";
                 medalColor = 0xFF8300;
             }
-            else if (auth === "qO4d1F7Tujq3kzUeXSXO52NrBlohuINfP78VCqXFJ1A") {
+            else if (auth === "q9Yrg6uhlxJHbOjKsrgoxeH7JAgXxX1QuUksesI9mjo") {
                 medalPrefix = "[🥉]";
                 medalColor = 0xCD7F32;
             }
-            else if (auth === "EXuArT2LI52mSbYqp6JTcQvJ9Ww08k5-b2qWLHAdBIM") {
-                medalColor = 0xFF00EE;
+            else if (auth === "TGkMI9nGOnuBzbwmUQqDkF4XrqRlGjBQUbxX3Kl3v4g") {
+                medalColor = 0xFF0000;
             }
         }
 
@@ -390,6 +400,21 @@ export async function onPlayerChatListener(
         pickPlayer(n - 1);
         return false;
     }
+    else if (isBasketCup) {
+        const playerData = window.gameRoom.playerList.get(player.id);
+        if (!playerData) return false;
+
+        const prefixedMessage = `${playerData.name}: ${message}`;
+        window.gameRoom._room.sendAnnouncement(
+            prefixedMessage,
+            null,
+            0xFFFFFF,
+            "normal",
+            1
+        );
+        return false;
+    }
+
     else {
         return true;
     }
